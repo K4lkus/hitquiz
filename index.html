@@ -3,20 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hitster Party Quiz</title>
+    <title>Hitster Party - DB Edition</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #121212; color: white; padding: 20px; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #121212; color: white; padding: 20px; }
         .card { background: #1e1e1e; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); max-width: 500px; margin-left: auto; margin-right: auto; }
         .hidden { display: none; }
-        button { background: #1DB954; border: none; color: white; padding: 12px 24px; border-radius: 25px; cursor: pointer; font-size: 1em; margin: 5px; font-weight: bold; }
-        button:active { background: #17a34a; }
-        input { padding: 12px; border-radius: 8px; border: 1px solid #333; background: #252525; color: white; width: 80%; margin-bottom: 10px; font-size: 1em; }
+        
+        /* Buttons */
+        button { background: #1DB954; border: none; color: white; padding: 12px 24px; border-radius: 25px; cursor: pointer; font-size: 1em; margin: 5px; font-weight: bold; transition: 0.2s; }
+        button:hover { transform: scale(1.05); background: #1ed760; }
+        .btn-secondary { background: #444; }
+        .btn-danger { background: #cc0000; font-size: 0.8em; opacity: 0.7; }
+        
+        /* Inputs */
+        input { padding: 12px; border-radius: 8px; border: 1px solid #333; background: #252525; color: white; width: 80%; margin-bottom: 10px; }
+        
+        /* Video verstecken */
         #video-player { position: absolute; left: -9999px; width: 1px; height: 1px; }
+
+        /* Scoreboard */
         .scoreboard { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
-        .player-score { background: #282828; padding: 15px; border-radius: 10px; min-width: 120px; border: 1px solid #333; }
-        .score-val { font-size: 2.5em; display: block; margin: 5px 0; color: #1DB954; }
-        .song-display { color: #ffcc00; font-size: 1.3em; margin-top: 15px; border-top: 1px dashed #444; padding-top: 15px; }
-        h2 { color: #1DB954; }
+        .player-score { background: #282828; padding: 15px; border-radius: 10px; min-width: 100px; border: 1px solid #333; }
+        .score-val { font-size: 2em; display: block; margin: 5px 0; color: #1DB954; }
+        
+        /* Song Info */
+        .song-display { color: #ffcc00; font-size: 1.3em; margin-top: 15px; border-top: 1px dashed #444; padding-top: 15px; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .db-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-top: 10px; }
+        .db-item { background: #333; font-size: 0.7em; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -29,74 +44,68 @@
         <button onclick="createPlayerInputs(4)">4 Spieler</button>
         
         <div id="name-inputs" style="margin-top: 20px;"></div>
-        <button id="start-game-btn" class="hidden" onclick="startGame()" style="background: #ffffff; color: #000; margin-top: 20px;">Spiel starten 🚀</button>
+        <button id="start-game-btn" class="hidden" onclick="startGame()" style="background: white; color: black;">Spiel starten 🚀</button>
     </div>
 
     <div id="game-area" class="hidden">
+        
         <div class="card">
-            <h2 id="status">Warte auf Musik...</h2>
+            <h2 id="status">Wähle einen Song</h2>
+            <button onclick="pickRandomSong()" style="font-size: 1.2em; background: #1DB954;">🎲 Zufälliger Song</button>
+            
             <iframe id="video-player" src="" frameborder="0" allow="autoplay"></iframe>
             
-            <button id="play-btn" class="hidden" onclick="startVideo()" style="font-size: 1.5em; padding: 20px 40px;">▶️ Musik abspielen</button>
-            
+            <div id="controls" class="hidden">
+                <button id="play-btn" onclick="startVideo()" style="background: #ffffff; color: black;">▶️ Musik abspielen</button>
+                <button id="reveal-btn" onclick="revealInfo()" class="btn-secondary">👁️ Lösung zeigen</button>
+            </div>
+
             <div id="song-info" class="hidden">
                 <div class="song-display">
                     <strong id="display-title"></strong><br>
                     <span id="display-year"></span>
                 </div>
             </div>
-
-            <br><br>
-            <button id="reveal-btn" class="hidden" onclick="revealInfo()" style="background:#444;">👁️ Lösung anzeigen</button>
         </div>
 
         <div id="scoreboard" class="scoreboard"></div>
         
-        <button onclick="resetGame()" style="background:#cc0000; margin-top:40px; font-size: 0.8em; opacity: 0.6;">Runde beenden / Namen löschen</button>
+        <div class="card" style="margin-top: 20px;">
+            <p style="font-size: 0.8em; color: #888;">Datenbank Übersicht:</p>
+            <div id="db-overview" class="db-list"></div>
+        </div>
+
+        <button onclick="resetGame()" class="btn-danger">Alles zurücksetzen & beenden</button>
     </div>
 
     <script>
-        // DEINE SONG-LISTE
-        const songDatenbank = {
-            "song1": { ytId: "dQw4w9WgXcQ", titel: "Never Gonna Give You Up", interpret: "Rick Astley", jahr: 1987 },
-            "song2": { ytId: "l482T0yNkeo", titel: "Bohemian Rhapsody", interpret: "Queen", jahr: 1975 },
-            "song3": { ytId: "JkK8g6FMEXE", titel: "Despacito", interpret: "Luis Fonsi", jahr: 2017 }
-        };
+        // --- DEINE DATENBANK ---
+        // Hier kannst du einfach neue Zeilen hinzufügen!
+        const songDatenbank = [
+            { ytId: "dQw4w9WgXcQ", titel: "Never Gonna Give You Up", interpret: "Rick Astley", jahr: 1987 },
+            { ytId: "l482T0yNkeo", titel: "Bohemian Rhapsody", interpret: "Queen", jahr: 1975 },
+            { ytId: "JkK8g6FMEXE", titel: "Despacito", interpret: "Luis Fonsi", jahr: 2017 },
+            { ytId: "V1bFr2SWP1I", titel: "Cheap Thrills", interpret: "Sia", jahr: 2016 },
+            { ytId: "hT_nvWreIhg", titel: "One Dance", interpret: "Drake", jahr: 2016 }
+        ];
 
-        let currentYtId = "";
         let players = [];
+        let currentSong = null;
 
-        // WIRD BEIM LADEN AUSGEFÜHRT
+        // Prüfen ob bereits ein Spiel läuft
         window.onload = function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const songId = urlParams.get('id'); 
-
-            // 1. Schauen, ob wir schon Spieler im Speicher haben
-            const saved = localStorage.getItem('hitster_players');
+            const saved = localStorage.getItem('hitster_db_players');
             if (saved) {
                 players = JSON.parse(saved);
-                document.getElementById('setup-area').classList.add('hidden');
-                document.getElementById('game-area').classList.remove('hidden');
-                renderScoreboard();
-            }
-
-            // 2. Song laden, falls ID da
-            if (songId && songDatenbank[songId]) {
-                const song = songDatenbank[songId];
-                currentYtId = song.ytId;
-                document.getElementById('status').innerText = "Lied ist bereit!";
-                document.getElementById('display-title').innerText = song.titel + " - " + song.interpret;
-                document.getElementById('display-year').innerText = "Jahr: " + song.jahr;
-                document.getElementById('play-btn').classList.remove('hidden');
-                document.getElementById('reveal-btn').classList.remove('hidden');
+                showGame();
             }
         };
 
         function createPlayerInputs(num) {
             const container = document.getElementById('name-inputs');
-            container.innerHTML = "<h3>Namen eingeben:</h3>";
+            container.innerHTML = "<h3>Namen:</h3>";
             for(let i=1; i<=num; i++) {
-                container.innerHTML += `<input type="text" id="name-${i}" placeholder="Name ${i}">`;
+                container.innerHTML += `<input type="text" id="name-${i}" placeholder="Spieler ${i}">`;
             }
             document.getElementById('start-game-btn').classList.remove('hidden');
         }
@@ -104,49 +113,78 @@
         function startGame() {
             const inputs = document.querySelectorAll('#name-inputs input');
             players = Array.from(inputs).map(inp => ({ name: inp.value || "Spieler", score: 0 }));
-            localStorage.setItem('hitster_players', JSON.stringify(players));
-            
+            localStorage.setItem('hitster_db_players', JSON.stringify(players));
+            showGame();
+        }
+
+        function showGame() {
             document.getElementById('setup-area').classList.add('hidden');
             document.getElementById('game-area').classList.remove('hidden');
             renderScoreboard();
+            renderDbOverview();
         }
 
-        function renderScoreboard() {
-            const sb = document.getElementById('scoreboard');
-            sb.innerHTML = "";
-            players.forEach((p, index) => {
-                sb.innerHTML += `
-                    <div class="player-score">
-                        <strong>${p.name}</strong>
-                        <span class="score-val" id="score-${index}">${p.score}</span>
-                        <button onclick="changeScore(${index}, 1)">+</button>
-                        <button onclick="changeScore(${index}, -1)" style="background:#555">-</button>
-                    </div>`;
-            });
-        }
-
-        function changeScore(index, val) {
-            players[index].score += val;
-            document.getElementById(`score-${index}`).innerText = players[index].score;
-            localStorage.setItem('hitster_players', JSON.stringify(players));
-        }
-
-        function resetGame() {
-            if(confirm("Alle Namen und Punkte löschen?")) {
-                localStorage.removeItem('hitster_players');
-                window.location.href = window.location.pathname; // Neu laden ohne ID
-            }
+        function pickRandomSong() {
+            const randomIndex = Math.floor(Math.random() * songDatenbank.length);
+            currentSong = songDatenbank[randomIndex];
+            
+            // UI Update
+            document.getElementById('status').innerText = "Song ausgewählt!";
+            document.getElementById('display-title').innerText = currentSong.titel + " - " + currentSong.interpret;
+            document.getElementById('display-year').innerText = "Erscheinungsjahr: " + currentSong.jahr;
+            
+            document.getElementById('controls').classList.remove('hidden');
+            document.getElementById('song-info').classList.add('hidden');
+            document.getElementById('video-player').src = ""; // Stop current
+            document.getElementById('play-btn').innerText = "▶️ Musik abspielen";
         }
 
         function startVideo() {
-            if(currentYtId) {
-                document.getElementById('video-player').src = "https://www.youtube.com/embed/" + currentYtId + "?autoplay=1";
+            if(currentSong) {
+                document.getElementById('video-player').src = "https://www.youtube.com/embed/" + currentSong.ytId + "?autoplay=1";
                 document.getElementById('play-btn').innerText = "🎵 Musik läuft...";
             }
         }
 
         function revealInfo() {
             document.getElementById('song-info').classList.remove('hidden');
+        }
+
+        function renderScoreboard() {
+            const sb = document.getElementById('scoreboard');
+            sb.innerHTML = "";
+            players.forEach((p, i) => {
+                sb.innerHTML += `
+                    <div class="player-score">
+                        <strong>${p.name}</strong>
+                        <span class="score-val" id="sc-${i}">${p.score}</span>
+                        <button onclick="updateScore(${i}, 1)">+</button>
+                        <button onclick="updateScore(${i}, -1)" style="background:#555">-</button>
+                    </div>`;
+            });
+        }
+
+        function updateScore(i, v) {
+            players[i].score += v;
+            document.getElementById(`sc-${i}`).innerText = players[i].score;
+            localStorage.setItem('hitster_db_players', JSON.stringify(players));
+        }
+
+        function renderDbOverview() {
+            const div = document.getElementById('db-overview');
+            div.innerHTML = songDatenbank.map((s, i) => `<div class="db-item" onclick="loadSpecific(${i})">S${i+1}</div>`).join("");
+        }
+
+        function loadSpecific(i) {
+            currentSong = songDatenbank[i];
+            pickRandomSong(); // Nutzt die gleiche Logik wie Random, nur mit festem Song
+        }
+
+        function resetGame() {
+            if(confirm("Spielstand und Namen löschen?")) {
+                localStorage.removeItem('hitster_db_players');
+                location.reload();
+            }
         }
     </script>
 </body>
