@@ -89,27 +89,30 @@
     let currentSong = null;
 
     // 1. Daten aus Google Sheets laden
-    async function loadSongsFromSheet() {
-        try {
+     async function loadSongsFromSheet() {
+         try {
             const response = await fetch(sheetUrl);
             const data = await response.text();
-            
-            // CSV in eine Liste umwandeln
-            const rows = data.split('\n').slice(1); // Erste Zeile ignorieren
+        
+            // CSV in Zeilen trennen
+            const rows = data.split('\n').slice(1); 
+        
             songDatenbank = rows.map(row => {
-                const [ytId, titel, interpret, jahr] = row.split(',');
+                // WICHTIG: Falls deine CSV Semikolons statt Kommas nutzt, hier das "," durch ";" ersetzen
+                const columns = row.split(','); 
+            
                 return { 
-                    ytId: ytId?.trim(), 
-                    titel: titel?.trim(), 
-                    interpret: interpret?.trim(), 
-                    jahr: jahr?.trim() 
+                    ytId: columns[0]?.trim(), 
+                    titel: columns[1]?.trim(), 
+                    interpret: columns[2]?.trim(), 
+                    jahr: columns[3]?.trim() 
                 };
-            }).filter(s => s.ytId); // Leere Zeilen entfernen
+            }).filter(s => s.ytId && s.ytId.length > 5); // FILTERT LEERE ZEILEN RAUS
 
             console.log("Songs geladen:", songDatenbank.length);
+            renderDbOverview(); // Aktualisiert die Anzeige unten
         } catch (error) {
-            console.error("Fehler beim Laden der Tabelle:", error);
-            alert("Konnte Songs nicht laden. Prüfe die Internetverbindung.");
+            console.error("Fehler:", error);
         }
     }
 
