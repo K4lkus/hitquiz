@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mein Musik Quiz</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background-color: #121212; color: white; padding: 20px; }
+        .card { background: #1e1e1e; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .hidden { display: none; color: #ffcc00; font-size: 1.2em; margin-top: 15px; }
+        button { background: #1DB954; border: none; color: white; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-size: 1em; margin: 5px; }
+        button:active { background: #17a34a; }
+        input { padding: 10px; border-radius: 5px; border: none; width: 60%; margin-bottom: 10px; }
+        .scoreboard { display: flex; justify-content: space-around; margin-top: 30px; border-top: 1px solid #333; padding-top: 20px; }
+        .player { font-size: 1.1em; }
+    </style>
+</head>
+<body>
+
+    <h2>🎵 Musik Quiz 🎵</h2>
+
+    <div class="card">
+	<div id="player-container">
+		<div id="placeholder-text">Warte auf Scan...</div>
+		<iframe id="video-player" width="300" height="200" src="" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+	</div>
+        
+        <p>Aktueller Song-Status:</p>
+        <h3 id="status">Kein Lied geladen</h3>
+
+        <div id="song-info" class="hidden">
+            <hr>
+            <h3 id="display-title">Titel laden...</h3>
+            <p id="display-year">Jahr laden...</p>
+        </div>
+
+        <br>
+        <button id="play-btn" onclick="startVideo()" style="display:none;">▶️ Musik starten</button>
+        <button onclick="revealInfo()" style="background:#555;">👁️ Lösung zeigen</button>
+    </div>
+
+    <div class="scoreboard">
+        <div class="player">Spieler 1<br><b id="score1">0</b><br>
+            <button onclick="changeScore(1, 1)">+</button><button onclick="changeScore(1, -1)">-</button>
+        </div>
+        <div class="player">Spieler 2<br><b id="score2">0</b><br>
+            <button onclick="changeScore(2, 1)">+</button><button onclick="changeScore(2, -1)">-</button>
+        </div>
+    </div>
+
+    <script>
+        const songDatenbank = {
+            "song1": { ytId: "dQw4w9WgXcQ", titel: "Never Gonna Give You Up", interpret: "Rick Astley", jahr: 1987 },
+            "song2": { ytId: "l482T0yNkeo", titel: "Bohemian Rhapsody", interpret: "Queen", jahr: 1975 },
+            "song3": { ytId: "JkK8g6FMEXE", titel: "Despacito", interpret: "Luis Fonsi", jahr: 2017 }
+        };
+
+        let currentYtId = "";
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const songId = urlParams.get('id'); 
+
+            if (songId && songDatenbank[songId]) {
+                const song = songDatenbank[songId];
+                currentYtId = song.ytId;
+                
+                document.getElementById('status').innerText = "Lied bereit!";
+                document.getElementById('display-title').innerText = song.titel + " - " + song.interpret;
+                document.getElementById('display-year').innerText = "Erscheinungsjahr: " + song.jahr;
+                document.getElementById('play-btn').style.display = "inline-block";
+                document.getElementById('placeholder-text').style.display = "none";
+            } else {
+                document.getElementById('status').innerText = "Bitte QR-Code scannen";
+            }
+        };
+
+		function startVideo() {
+			if(currentYtId) {
+				// Wir fügen Parameter hinzu, die YouTube "beruhigen"
+				const embedUrl = "https://www.youtube.com/embed/" + currentYtId + "?autoplay=1&origin=http://localhost";
+				document.getElementById('video-player').src = embedUrl;
+			}
+		}
+
+        function revealInfo() {
+            document.getElementById('song-info').style.display = 'block';
+        }
+
+        let s1 = 0, s2 = 0;
+        function changeScore(p, v) {
+            if(p===1) { s1+=v; document.getElementById('score1').innerText = s1; }
+            else { s2+=v; document.getElementById('score2').innerText = s2; }
+        }
+    </script>
+</body>
+</body>
+</html>
