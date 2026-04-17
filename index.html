@@ -98,23 +98,41 @@
             try {
                 const response = await fetch(sheetUrl);
                 const data = await response.text();
-                const rows = data.split('\n').slice(1); 
                 
-                songDatenbank = rows.map(row => {
-                    const columns = row.split(';'); // Falls es nicht geht, hier ',' durch ';' ersetzen
-                    return { 
-                        ytId: columns[0]?.trim(), 
-                        titel: columns[1]?.trim(), 
-                        interpret: columns[2]?.trim(), 
-                        jahr: columns[3]?.trim() 
+                // Wir teilen den Text in Zeilen
+                const rows = data.split(/\r?\n/); // Erkennt verschiedene Zeilenumbrüche
+                
+                const geladeneSongs = [];
+
+                // Wir gehen jede Zeile durch (starten bei 1, um Header zu überspringen)
+                for (let i = 1; i < rows.length; i++) {
+                    if (!rows[i].trim()) continue; // Überspringe komplett leere Zeilen
+
+                    const columns = rows[i].includes(';') ? rows[i].split(';') : rows[i].split(',');
+                    
+                    const song = {
+                        ytId: columns[0] ? columns[0].trim() : "",
+                        titel: columns[1] ? columns[1].trim() : "",
+                        interpret: columns[2] ? columns[2].trim() : "",
+                        jahr: columns[3] ? columns[3].trim() : ""
                     };
-                }).filter(s => s.ytId && s.ytId.length > 5);
+
+                    // DER FILTER: Nur hinzufügen, wenn die ytId genau 11 Zeichen hat 
+                    // (oder zumindest länger als 5 ist und nicht "undefined" heißt)
+                    if (song.ytId && song.ytId.length > 5 && song.ytId !== "undefined") {
+                        geladeneSongs.push(song);
+                    }
+                }
+
+                songDatenbank = geladeneSongs;
 
                 document.getElementById('db-count').innerText = "Songs in DB: " + songDatenbank.length;
-                document.getElementById('status').innerText = "Bereit zum Spielen!";
-                document.getElementById('random-btn').classList.remove('hidden');
+                document.getElementById('status').innerText = songDatenbank.length > 0 ? "Bereit zum Spielen!" : "DB leer - Links prüfen!";
+                if(songDatenbank.length > 0) {
+                    document.getElementById('random-btn').classList.remove('hidden');
+                }
             } catch (error) {
-                document.getElementById('status').innerText = "Fehler beim Laden der DB!";
+                document.getElementById('status').innerText = "Fehler beim Laden!";
                 console.error(error);
             }
         }
