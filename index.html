@@ -3,49 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mein Musik Quiz</title>
+    <title>Hitster Clone</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background-color: #121212; color: white; padding: 20px; }
-        .card { background: #1e1e1e; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .hidden { display: none; color: #ffcc00; font-size: 1.2em; margin-top: 15px; }
-        button { background: #1DB954; border: none; color: white; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-size: 1em; margin: 5px; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #121212; color: white; padding: 20px; }
+        .card { background: #1e1e1e; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .hidden { display: none; }
+        button { background: #1DB954; border: none; color: white; padding: 12px 24px; border-radius: 25px; cursor: pointer; font-size: 1em; margin: 5px; font-weight: bold; }
         button:active { background: #17a34a; }
-        input { padding: 10px; border-radius: 5px; border: none; width: 60%; margin-bottom: 10px; }
-        .scoreboard { display: flex; justify-content: space-around; margin-top: 30px; border-top: 1px solid #333; padding-top: 20px; }
-        .player { font-size: 1.1em; }
+        input { padding: 10px; border-radius: 8px; border: 1px solid #333; background: #252525; color: white; width: 80%; margin-bottom: 10px; }
+        
+        /* Unsichtbarer Player gegen Schummeln */
+        #video-player { position: absolute; left: -9999px; width: 1px; height: 1px; }
+
+        .scoreboard { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px; }
+        .player-score { background: #282828; padding: 15px; border-radius: 10px; min-width: 100px; }
+        .score-val { font-size: 2em; display: block; margin: 10px 0; color: #1DB954; }
+        
+        #setup-area { margin-top: 50px; }
+        .song-display { color: #ffcc00; font-size: 1.3em; margin-top: 15px; border-top: 1px dashed #444; padding-top: 15px; }
     </style>
 </head>
 <body>
 
-    <h2>🎵 Musik Quiz 🎵</h2>
-
-    <div class="card">
-	<div id="player-container">
-		<div id="placeholder-text">Warte auf Scan...</div>
-		<iframe id="video-player" width="300" height="200" src="" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-	</div>
+    <div id="setup-area" class="card">
+        <h2>👥 Spiel-Setup</h2>
+        <p>Wie viele Spieler?</p>
+        <button onclick="createPlayerInputs(2)">2 Spieler</button>
+        <button onclick="createPlayerInputs(3)">3 Spieler</button>
+        <button onclick="createPlayerInputs(4)">4 Spieler</button>
         
-        <p>Aktueller Song-Status:</p>
-        <h3 id="status">Kein Lied geladen</h3>
-
-        <div id="song-info" class="hidden">
-            <hr>
-            <h3 id="display-title">Titel laden...</h3>
-            <p id="display-year">Jahr laden...</p>
-        </div>
-
-        <br>
-        <button id="play-btn" onclick="startVideo()" style="display:none;">▶️ Musik starten</button>
-        <button onclick="revealInfo()" style="background:#555;">👁️ Lösung zeigen</button>
+        <div id="name-inputs" style="margin-top: 20px;"></div>
+        <button id="start-game-btn" class="hidden" onclick="startGame()" style="background: #ffffff; color: #000;">Spiel starten 🚀</button>
     </div>
 
-    <div class="scoreboard">
-        <div class="player">Spieler 1<br><b id="score1">0</b><br>
-            <button onclick="changeScore(1, 1)">+</button><button onclick="changeScore(1, -1)">-</button>
+    <div id="game-area" class="hidden">
+        <div class="card">
+            <h2 id="status">Warte auf Scan...</h2>
+            <iframe id="video-player" src="" frameborder="0" allow="autoplay"></iframe>
+            
+            <button id="play-btn" class="hidden" onclick="startVideo()">▶️ Musik starten</button>
+            
+            <div id="song-info" class="hidden">
+                <div class="song-display">
+                    <strong id="display-title"></strong><br>
+                    <span id="display-year"></span>
+                </div>
+            </div>
+
+            <br><br>
+            <button onclick="revealInfo()" style="background:#444;">👁️ Lösung zeigen</button>
         </div>
-        <div class="player">Spieler 2<br><b id="score2">0</b><br>
-            <button onclick="changeScore(2, 1)">+</button><button onclick="changeScore(2, -1)">-</button>
-        </div>
+
+        <div id="scoreboard" class="scoreboard"></div>
     </div>
 
     <script>
@@ -56,43 +65,73 @@
         };
 
         let currentYtId = "";
+        let players = [];
 
-        window.onload = function() {
+        // 1. Namen-Eingabefelder erzeugen
+        function createPlayerInputs(num) {
+            const container = document.getElementById('name-inputs');
+            container.innerHTML = "<h3>Namen eingeben:</h3>";
+            for(let i=1; i<=num; i++) {
+                container.innerHTML += `<input type="text" id="name-${i}" placeholder="Spieler ${i} Name">`;
+            }
+            document.getElementById('start-game-btn').classList.remove('hidden');
+        }
+
+        // 2. Spiel starten und Scoreboard bauen
+        function startGame() {
+            const inputs = document.querySelectorAll('#name-inputs input');
+            players = Array.from(inputs).map(inp => ({ name: inp.value || "Anonym", score: 0 }));
+
+            document.getElementById('setup-area').classList.add('hidden');
+            document.getElementById('game-area').classList.remove('hidden');
+            renderScoreboard();
+            checkUrl();
+        }
+
+        // 3. Scoreboard anzeigen
+        function renderScoreboard() {
+            const sb = document.getElementById('scoreboard');
+            sb.innerHTML = "";
+            players.forEach((p, index) => {
+                sb.innerHTML += `
+                    <div class="player-score">
+                        <strong>${p.name}</strong>
+                        <span class="score-val" id="score-${index}">${p.score}</span>
+                        <button onclick="changeScore(${index}, 1)">+</button>
+                        <button onclick="changeScore(${index}, -1)" style="background:#888">-</button>
+                    </div>`;
+            });
+        }
+
+        function changeScore(index, val) {
+            players[index].score += val;
+            document.getElementById(`score-${index}`).innerText = players[index].score;
+        }
+
+        // 4. Song-Logik
+        function checkUrl() {
             const urlParams = new URLSearchParams(window.location.search);
             const songId = urlParams.get('id'); 
 
             if (songId && songDatenbank[songId]) {
                 const song = songDatenbank[songId];
                 currentYtId = song.ytId;
-                
-                document.getElementById('status').innerText = "Lied bereit!";
+                document.getElementById('status').innerText = "Lied geladen!";
                 document.getElementById('display-title').innerText = song.titel + " - " + song.interpret;
                 document.getElementById('display-year').innerText = "Erscheinungsjahr: " + song.jahr;
-                document.getElementById('play-btn').style.display = "inline-block";
-                document.getElementById('placeholder-text').style.display = "none";
-            } else {
-                document.getElementById('status').innerText = "Bitte QR-Code scannen";
+                document.getElementById('play-btn').classList.remove('hidden');
             }
-        };
+        }
 
-		function startVideo() {
-			if(currentYtId) {
-				// Wir fügen Parameter hinzu, die YouTube "beruhigen"
-				const embedUrl = "https://www.youtube.com/embed/" + currentYtId + "?autoplay=1&origin=http://localhost";
-				document.getElementById('video-player').src = embedUrl;
-			}
-		}
+        function startVideo() {
+            if(currentYtId) {
+                document.getElementById('video-player').src = "https://www.youtube.com/embed/" + currentYtId + "?autoplay=1";
+            }
+        }
 
         function revealInfo() {
-            document.getElementById('song-info').style.display = 'block';
-        }
-
-        let s1 = 0, s2 = 0;
-        function changeScore(p, v) {
-            if(p===1) { s1+=v; document.getElementById('score1').innerText = s1; }
-            else { s2+=v; document.getElementById('score2').innerText = s2; }
+            document.getElementById('song-info').classList.remove('hidden');
         }
     </script>
-</body>
 </body>
 </html>
