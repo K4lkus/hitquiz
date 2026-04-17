@@ -101,7 +101,7 @@
                 const rows = data.split('\n').slice(1); 
                 
                 songDatenbank = rows.map(row => {
-                    const columns = row.split(','); // Falls es nicht geht, hier ',' durch ';' ersetzen
+                    const columns = row.split(';'); // Falls es nicht geht, hier ',' durch ';' ersetzen
                     return { 
                         ytId: columns[0]?.trim(), 
                         titel: columns[1]?.trim(), 
