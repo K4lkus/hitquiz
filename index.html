@@ -58,80 +58,106 @@
     </div>
 
     <script>
-        const songDatenbank = {
-            "song1": { ytId: "dQw4w9WgXcQ", titel: "Never Gonna Give You Up", interpret: "Rick Astley", jahr: 1987 },
-            "song2": { ytId: "l482T0yNkeo", titel: "Bohemian Rhapsody", interpret: "Queen", jahr: 1975 },
-            "song3": { ytId: "JkK8g6FMEXE", titel: "Despacito", interpret: "Luis Fonsi", jahr: 2017 }
-        };
+    const songDatenbank = {
+        "song1": { ytId: "dQw4w9WgXcQ", titel: "Never Gonna Give You Up", interpret: "Rick Astley", jahr: 1987 },
+        "song2": { ytId: "l482T0yNkeo", titel: "Bohemian Rhapsody", interpret: "Queen", jahr: 1975 },
+        "song3": { ytId: "JkK8g6FMEXE", titel: "Despacito", interpret: "Luis Fonsi", jahr: 2017 }
+    };
 
-        let currentYtId = "";
-        let players = [];
+    let currentYtId = "";
+    let players = [];
 
-        // 1. Namen-Eingabefelder erzeugen
-        function createPlayerInputs(num) {
-            const container = document.getElementById('name-inputs');
-            container.innerHTML = "<h3>Namen eingeben:</h3>";
-            for(let i=1; i<=num; i++) {
-                container.innerHTML += `<input type="text" id="name-${i}" placeholder="Spieler ${i} Name">`;
-            }
-            document.getElementById('start-game-btn').classList.remove('hidden');
-        }
+    // Diese Funktion läuft AUTOMATISCH, wenn die Seite geladen wird
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const songId = urlParams.get('id'); 
 
-        // 2. Spiel starten und Scoreboard bauen
-        function startGame() {
-            const inputs = document.querySelectorAll('#name-inputs input');
-            players = Array.from(inputs).map(inp => ({ name: inp.value || "Anonym", score: 0 }));
-
-            document.getElementById('setup-area').classList.add('hidden');
-            document.getElementById('game-area').classList.remove('hidden');
-            renderScoreboard();
-            checkUrl();
-        }
-
-        // 3. Scoreboard anzeigen
-        function renderScoreboard() {
-            const sb = document.getElementById('scoreboard');
-            sb.innerHTML = "";
-            players.forEach((p, index) => {
-                sb.innerHTML += `
-                    <div class="player-score">
-                        <strong>${p.name}</strong>
-                        <span class="score-val" id="score-${index}">${p.score}</span>
-                        <button onclick="changeScore(${index}, 1)">+</button>
-                        <button onclick="changeScore(${index}, -1)" style="background:#888">-</button>
-                    </div>`;
-            });
-        }
-
-        function changeScore(index, val) {
-            players[index].score += val;
-            document.getElementById(`score-${index}`).innerText = players[index].score;
-        }
-
-        // 4. Song-Logik
-        function checkUrl() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const songId = urlParams.get('id'); 
-
-            if (songId && songDatenbank[songId]) {
-                const song = songDatenbank[songId];
-                currentYtId = song.ytId;
-                document.getElementById('status').innerText = "Lied geladen!";
-                document.getElementById('display-title').innerText = song.titel + " - " + song.interpret;
-                document.getElementById('display-year').innerText = "Erscheinungsjahr: " + song.jahr;
-                document.getElementById('play-btn').classList.remove('hidden');
+        // 1. Prüfen, ob bereits Spieler im Speicher (LocalStorage) sind
+        const gespeicherteSpieler = localStorage.getItem('hitster_players');
+        if (gespeicherteSpieler) {
+            players = JSON.parse(gespeicherteSpieler);
+            
+            // Wenn Spieler da sind UND eine Song-ID gescannt wurde: Direkt zum Spiel
+            if (songId) {
+                zeigeSpielBereich();
             }
         }
 
-        function startVideo() {
-            if(currentYtId) {
-                document.getElementById('video-player').src = "https://www.youtube.com/embed/" + currentYtId + "?autoplay=1";
-            }
+        // 2. Song laden, falls ID vorhanden
+        if (songId && songDatenbank[songId]) {
+            const song = songDatenbank[songId];
+            currentYtId = song.ytId;
+            document.getElementById('status').innerText = "Lied geladen!";
+            document.getElementById('display-title').innerText = song.titel + " - " + song.interpret;
+            document.getElementById('display-year').innerText = "Erscheinungsjahr: " + song.jahr;
+            document.getElementById('play-btn').classList.remove('hidden');
         }
+    };
 
-        function revealInfo() {
-            document.getElementById('song-info').classList.remove('hidden');
+    function createPlayerInputs(num) {
+        const container = document.getElementById('name-inputs');
+        container.innerHTML = "<h3>Namen eingeben:</h3>";
+        for(let i=1; i<=num; i++) {
+            container.innerHTML += `<input type="text" id="name-${i}" placeholder="Spieler ${i} Name">`;
         }
-    </script>
+        document.getElementById('start-game-btn').classList.remove('hidden');
+    }
+
+    function startGame() {
+        const inputs = document.querySelectorAll('#name-inputs input');
+        players = Array.from(inputs).map(inp => ({ name: inp.value || "Anonym", score: 0 }));
+        
+        // Spieler dauerhaft im Browser speichern
+        localStorage.setItem('hitster_players', JSON.stringify(players));
+        
+        zeigeSpielBereich();
+    }
+
+    function zeigeSpielBereich() {
+        document.getElementById('setup-area').classList.add('hidden');
+        document.getElementById('game-area').classList.remove('hidden');
+        renderScoreboard();
+    }
+
+    function renderScoreboard() {
+        const sb = document.getElementById('scoreboard');
+        sb.innerHTML = "";
+        players.forEach((p, index) => {
+            sb.innerHTML += `
+                <div class="player-score">
+                    <strong>${p.name}</strong>
+                    <span class="score-val" id="score-${index}">${p.score}</span>
+                    <button onclick="changeScore(${index}, 1)">+</button>
+                    <button onclick="changeScore(${index}, -1)" style="background:#888">-</button>
+                </div>`;
+        });
+        // Reset Button hinzufügen
+        sb.innerHTML += `<br><button onclick="resetGame()" style="background:#cc0000; margin-top:20px;">Spiel komplett neustarten</button>`;
+    }
+
+    function changeScore(index, val) {
+        players[index].score += val;
+        document.getElementById(`score-${index}`).innerText = players[index].score;
+        // Punktestand im Speicher aktualisieren
+        localStorage.setItem('hitster_players', JSON.stringify(players));
+    }
+
+    function resetGame() {
+        if(confirm("Willst du wirklich alle Namen und Punkte löschen?")) {
+            localStorage.removeItem('hitster_players');
+            location.href = location.pathname; // Seite ohne ?id=... neu laden
+        }
+    }
+
+    function startVideo() {
+        if(currentYtId) {
+            document.getElementById('video-player').src = "https://www.youtube.com/embed/" + currentYtId + "?autoplay=1";
+        }
+    }
+
+    function revealInfo() {
+        document.getElementById('song-info').classList.remove('hidden');
+    }
+</script>
 </body>
 </html>
