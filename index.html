@@ -31,6 +31,8 @@
 
         /* Gewinner Animation */
         .winner-glow { color: #ffd700 !important; text-shadow: 0 0 20px rgba(255, 215, 0, 0.8); animation: pulse-gold 1.5s infinite alternate; }
+        .total-wins { display: block; font-size: 0.8em; color: #ffd700; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        
         @keyframes pulse-gold { from { transform: scale(1); } to { transform: scale(1.1); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideInUp { from { opacity: 0; transform: translateY(30px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -59,6 +61,7 @@
         <button onclick="createPlayerInputs(2)">2 Spieler</button>
         <button onclick="createPlayerInputs(3)">3 Spieler</button>
         <button onclick="createPlayerInputs(4)">4 Spieler</button>
+        <button onclick="createPlayerInputs(5)">5 Spieler</button>
         
         <div id="name-inputs" style="margin-top: 20px;"></div>
         <button id="start-game-btn" class="hidden" onclick="startGame()" style="background: white; color: black;">Spiel starten 🚀</button>
@@ -90,6 +93,7 @@
         
         <div style="margin-top: 40px; padding-bottom: 40px;">
             <p id="db-count" style="font-size: 0.8em; color: #888;">Songs geladen: 0</p>
+            <button onclick="resetOnlyWins()" style="background: #ffa500; color: black; font-size: 0.8em;">🏆 Siege zurücksetzen</button>
             <button onclick="resetGame()" class="btn-danger">Kompletter Reset</button>
         </div>
     </div>
@@ -171,10 +175,24 @@
             if(!ok) return;
 
             const inputs = document.querySelectorAll('#name-inputs input');
-            players = Array.from(inputs).map(inp => ({ name: inp.value || "Spieler", score: 0, timeline: [] }));
-            localStorage.setItem('hitster_db_players', JSON.stringify(players));
-            showGame();
-        }
+    
+            // WICHTIG: Wir schauen, ob wir den Spieler schon kennen, um seine Siege zu behalten
+            const existingPlayers = JSON.parse(localStorage.getItem('hitster_db_players')) || [];
+
+            players = Array.from(inputs).map(inp => {
+                const name = inp.value || "Spieler";
+                const oldData = existingPlayers.find(p => p.name === name);
+                return { 
+                    name: name, 
+                    score: 0, 
+                    timeline: [], 
+                    wins: oldData ? oldData.wins : 0 // Siege übernehmen oder bei 0 starten
+            };
+        });
+    
+        localStorage.setItem('hitster_db_players', JSON.stringify(players));
+        showGame();
+    }
 
         function showGame() {
             document.getElementById('setup-area').classList.add('hidden');
@@ -219,14 +237,16 @@
             players.forEach((p, i) => {
                 const sorted = [...p.timeline].sort((a, b) => parseInt(a.jahr) - parseInt(b.jahr));
                 const timelineHTML = sorted.map(s => `<div class="timeline-card"><span class="timeline-year">${s.jahr}</span> ${s.titel}</div>`).join("");
+        
                 sb.innerHTML += `
                     <div class="player-score">
+                        <span class="total-wins">🏆 Siege: ${p.wins || 0}</span>
                         <strong>${p.name}</strong>
                         <span class="score-val">${p.score}</span>
                         <button onclick="addPoint(${i})">➕ Punkt</button>
                         <button onclick="updateScore(${i}, -1)" style="background:#555; padding: 5px 10px;">-1</button>
                         <div class="timeline">${timelineHTML}</div>
-                    </div>`;
+                     </div>`;
             });
         }
 
@@ -234,17 +254,24 @@
             if (!currentSong) return;
             players[idx].timeline.push({ titel: currentSong.titel, jahr: currentSong.jahr });
             players[idx].score = players[idx].timeline.length;
-            localStorage.setItem('hitster_db_players', JSON.stringify(players));
-            renderScoreboard();
 
             if (players[idx].score >= 10) {
-                // Konfetti & Glanz
+                // Sieg hochzählen!
+                players[idx].wins = (players[idx].wins || 0) + 1;
+        
+                localStorage.setItem('hitster_db_players', JSON.stringify(players));
+                renderScoreboard();
+
                 document.querySelectorAll('.player-score strong')[idx].classList.add('winner-glow');
                 confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+        
                 setTimeout(() => {
-                    alert("🏆 " + players[idx].name + " hat GEWONNEN! 🏆");
+                    alert("🏆 " + players[idx].name + " hat GEWONNEN! 🏆\nDas ist Sieg Nummer " + players[idx].wins);
                     if(confirm("Neue Runde mit gleichen Spielern?")) resetScores();
                 }, 1000);
+            } else {
+                localStorage.setItem('hitster_db_players', JSON.stringify(players));
+                renderScoreboard();
             }
         }
 
@@ -256,11 +283,31 @@
         }
 
         function resetScores() {
-            players.forEach(p => { p.score = 0; p.timeline = []; });
+            players.forEach(p => { 
+                p.score = 0; 
+                p.timeline = []; 
+                // p.wins wird hier NICHT angefasst, damit sie erhalten bleiben!
+            });
             localStorage.setItem('hitster_db_players', JSON.stringify(players));
-            location.reload();
+    
+            // Wir entfernen die Gold-Animation von allen Namen
+            const names = document.querySelectorAll('.player-score strong');
+            names.forEach(n => n.classList.remove('winner-glow'));
+    
+            renderScoreboard();
+            document.getElementById('status').innerText = "Neue Runde - Viel Glück!";
         }
 
+        function resetOnlyWins() {
+            if(confirm("Möchtest du wirklich alle Gesamtsiege auf 0 zurücksetzen?")) {
+                players.forEach(p => {
+                    p.wins = 0;
+                });
+                localStorage.setItem('hitster_db_players', JSON.stringify(players));
+                renderScoreboard();
+            }
+        }
+        
         function resetGame() {
             if(confirm("Alles löschen?")) {
                 localStorage.clear();
