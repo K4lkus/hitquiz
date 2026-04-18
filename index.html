@@ -12,7 +12,8 @@
 
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#0d0221">
-
+    
+    <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Roboto, sans-serif; text-align: center; background-color: #0d0221; color: #e0e0e0; padding: 20px; background-image: linear-gradient(180deg, #0d0221 0%, #0f0c29 100%); min-height: 100vh; }
@@ -41,6 +42,11 @@
         /* Gewinner Animation */
         .winner-glow { color: #ffd700 !important; text-shadow: 0 0 20px rgba(255, 215, 0, 0.8); animation: pulse-gold 1.5s infinite alternate; }
         .total-wins { display: block; font-size: 0.8em; color: #ffd700; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+
+        google-cast-launcher { display: inline-block; width: 45px; height: 45px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 5px; cursor: pointer; vertical-align: middle; transition: all 0.3s ease; border: 1px solid rgba(0, 212, 255, 0.3); }
+        google-cast-launcher:hover { background: rgba(0, 212, 255, 0.5); box-shadow: 0 0 15px rgba(0, 212, 255, 0.5); transform: scale(1.1); }
+        --conected-color: #00d4ff;
+        --disconected.color: #ffffff; 
         
         @keyframes pulse-gold { from { transform: scale(1); } to { transform: scale(1.1); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -87,6 +93,7 @@
             <div id="controls" class="hidden" style="margin-top: 15px;">
                 <button id="play-btn" onclick="startVideo()" style="background: #ffffff; color: black;">▶️ Abspielen</button>
                 <button id="stop-btn" onclick="stopVideo()" style="background: #cc0000; color: white;">⏹️ Stopp</button>
+                <google-cast-launcher id="cast-button"></google-cast-launcher>
                 <br>
                 <button id="reveal-btn" onclick="revealInfo()" class="btn-secondary" style="margin-top: 10px;">👁️ Lösung zeigen</button>
             </div>
