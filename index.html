@@ -43,10 +43,9 @@
         .winner-glow { color: #ffd700 !important; text-shadow: 0 0 20px rgba(255, 215, 0, 0.8); animation: pulse-gold 1.5s infinite alternate; }
         .total-wins { display: block; font-size: 0.8em; color: #ffd700; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
 
-        google-cast-launcher { display: inline-block; width: 45px; height: 45px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 5px; cursor: pointer; vertical-align: middle; transition: all 0.3s ease; border: 1px solid rgba(0, 212, 255, 0.3); }
+        google-cast-launcher { display: inline-block; width: 45px; height: 45px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 5px; cursor: pointer; vertical-align: middle; transition: all 0.3s ease; border: 1px solid rgba(0, 212, 255, 0.3); --conected-color: #00d4ff;
+        --disconected.color: #ffffff; }
         google-cast-launcher:hover { background: rgba(0, 212, 255, 0.5); box-shadow: 0 0 15px rgba(0, 212, 255, 0.5); transform: scale(1.1); }
-        --conected-color: #00d4ff;
-        --disconected.color: #ffffff; 
         
         @keyframes pulse-gold { from { transform: scale(1); } to { transform: scale(1.1); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
