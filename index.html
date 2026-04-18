@@ -4,6 +4,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title> 🎵 Hit-Quiz 🎵 </title>
 
+    <link rel="manifest" href="manifest.json">
+
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Hit-Quiz">
@@ -51,7 +53,8 @@
 
     <div id="setup-area" class="card">
         <h2>👥 Hit-Quiz Setup 👥</h2>
-        
+        <button onclick="toggleFullscreen()" class="btn-secondary">📺 Vollbild aktivieren</button>
+        <hr style="opacity: 0.1; margin: 20px 0;">
         <p>1. Wähle ein Song-Paket:</p>
         <select id="playlist-dropdown">
             <option value="set1">Box 1</option>
@@ -319,6 +322,17 @@
             if(confirm("Alles löschen?")) {
                 localStorage.clear();
                 location.reload();
+            }
+        }
+
+        function toggleFullscreen() {
+            let elem = document.documentElement;
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch(err => {
+                     console.log("Vollbild nicht möglich: " + err.message);
+                });
+            } else {
+                document.exitFullscreen();
             }
         }
     </script>
