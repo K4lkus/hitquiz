@@ -114,95 +114,121 @@
         </div>
     </div>
 
-    <script>
-        // --- KONFIGURATION DER PAKETE ---
-        const playlists = {
-            set1: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJkS7ZgyqTEyjfOdiQ0wFlhllm_ZeQHQo9S5z597Jq7ejqKjVjZRTIg9FHoaEx-rGGhsOCAEg5PL1G/pub?output=csv",
-            set2: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQzYclEUZUBUMy_NurHcMxlTxKKrmAXrJvSgjXuWw8K-IJIvKujFNNhWLTOXgPCUGCZQshmA-7m1bf1/pub?output=csv",
-            set3: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0gsqAIvj8J9NuQXKPmcwhRa4sNz-i-Uts1e-aGa8nS_eKWOAyrBFrgp68KHuc1pCl2j5LPBTNQFg7/pub?output=csv",
-            set4: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwwFxrPET10PDMDMNSDGxzb1AnrYCJl51OFpZPn9nM8S8z2Vxv10XTYLd5m4Yno_8ahRBNTLK2Z5Ga/pub?output=csv",
-            set5: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT9cOQXUt5d9uTPija5-R66ZO342W8DlXXLdGKYvlZni4ROoYF2WRlTUECeeO0NdTOAgH1yCryyA1TI/pub?output=csv",
-            set6: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO4s3amgq4KaLoVNjVdNhG4A8mUZG4wL3X_3QOAvVZyCVANVG4xazxGbHSEa7bUaRONcqQ97fXr32V/pub?output=csv",
-            set7: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQFJKjMwCXk5U6ifDInvMYAvIAwY1zkgyLcGi32iwwokaaRGj1VbfV5olGsIT4_8x8Nw0NTt-eiJ4FB/pub?output=csv",    
-            set8: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSL_cHFCBj95FNpJsyoX_MPDy8VxIJzsw2jFvex4NqG73TmmZV5GspYUma1W9aowmnvCcGBJRRRYVCL/pub?output=csv"
-        };
+   <script>
+    // ==========================================
+    // 1. INITIALISIERUNG (GOOGLE CAST & VOLLBILD)
+    // ==========================================
 
-        let songDatenbank = [];
-        let players = [];
-        let currentSong = null;
-        let playedSongIds = JSON.parse(localStorage.getItem('hitster_played_songs')) || [];
-
-        window.onload = function() {
-            const saved = localStorage.getItem('hitster_db_players');
-            if (saved) {
-                players = JSON.parse(saved);
-                // Wenn wir fortsetzen, müssen wir zumindest ein Standard-Paket laden
-                const lastSet = localStorage.getItem('hitster_last_set') || 'set1';
-                loadSongsFromSheet(lastSet).then(() => showGame());
-            }
-        };
-
-        async function loadSongsFromSheet(selectedKey) {
-            const url = playlists[selectedKey];
-            try {
-                const response = await fetch(url);
-                const data = await response.text();
-                const rows = data.split(/\r?\n/);
-                const geladeneSongs = [];
-
-                for (let i = 1; i < rows.length; i++) {
-                    if (!rows[i].trim()) continue;
-                    const columns = rows[i].includes(';') ? rows[i].split(';') : rows[i].split(',');
-                    const song = {
-                        ytId: columns[0]?.trim() || "",
-                        titel: columns[1]?.trim() || "",
-                        interpret: columns[2]?.trim() || "",
-                        jahr: columns[3]?.trim() || ""
-                    };
-                    if (song.ytId && song.ytId.length > 5) geladeneSongs.push(song);
-                }
-                songDatenbank = geladeneSongs;
-                updateDbCounter();
-                localStorage.setItem('hitster_last_set', selectedKey);
-                return true;
-            } catch (e) {
-                alert("Fehler beim Laden! Link prüfen.");
-                return false;
-            }
+    window['__onGCastApiAvailable'] = function(isAvailable) {
+        if (isAvailable) {
+            cast.framework.CastContext.getInstance().setOptions({
+                receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+                autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+            });
+            console.log("Cast API bereit!");
         }
+    };
 
-        function updateDbCounter() {
-            const pool = songDatenbank.filter(s => !playedSongIds.includes(s.ytId));
-            document.getElementById('db-count').innerText = `Noch verfügbar: ${pool.length} (Gespielt: ${playedSongIds.length})`;
+    function toggleFullscreen() {
+        let elem = document.documentElement;
+        if (!document.fullscreenElement) {
+            elem.requestFullscreen().catch(err => {
+                console.log("Vollbild nicht möglich: " + err.message);
+            });
+        } else {
+            document.exitFullscreen();
         }
+    }
 
-        function createPlayerInputs(num) {
-            const container = document.getElementById('name-inputs');
-            container.innerHTML = "<h3>Namen:</h3>";
-            for(let i=1; i<=num; i++) {
-                container.innerHTML += `<input type="text" id="name-${i}" placeholder="Spieler ${i}">`;
+    // ==========================================
+    // 2. SPIEL-LOGIK & DATENBANK
+    // ==========================================
+
+    const playlists = {
+        set1: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJkS7ZgyqTEyjfOdiQ0wFlhllm_ZeQHQo9S5z597Jq7ejqKjVjZRTIg9FHoaEx-rGGhsOCAEg5PL1G/pub?output=csv",
+        set2: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQzYclEUZUBUMy_NurHcMxlTxKKrmAXrJvSgjXuWw8K-IJIvKujFNNhWLTOXgPCUGCZQshmA-7m1bf1/pub?output=csv",
+        set3: "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0gsqAIvj8J9NuQXKPmcwhRa4sNz-i-Uts1e-aGa8nS_eKWOAyrBFrgp68KHuc1pCl2j5LPBTNQFg7/pub?output=csv",
+        set4: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwwFxrPET10PDMDMNSDGxzb1AnrYCJl51OFpZPn9nM8S8z2Vxv10XTYLd5m4Yno_8ahRBNTLK2Z5Ga/pub?output=csv",
+        set5: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT9cOQXUt5d9uTPija5-R66ZO342W8DlXXLdGKYvlZni4ROoYF2WRlTUECeeO0NdTOAgH1yCryyA1TI/pub?output=csv",
+        set6: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO4s3amgq4KaLoVNjVdNhG4A8mUZG4wL3X_3QOAvVZyCVANVG4xazxGbHSEa7bUaRONcqQ97fXr32V/pub?output=csv",
+        set7: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQFJKjMwCXk5U6ifDInvMYAvIAwY1zkgyLcGi32iwwokaaRGj1VbfV5olGsIT4_8x8Nw0NTt-eiJ4FB/pub?output=csv",    
+        set8: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSL_cHFCBj95FNpJsyoX_MPDy8VxIJzsw2jFvex4NqG73TmmZV5GspYUma1W9aowmnvCcGBJRRRYVCL/pub?output=csv"
+    };
+
+    let songDatenbank = [];
+    let players = [];
+    let currentSong = null;
+    let playedSongIds = JSON.parse(localStorage.getItem('hitster_played_songs')) || [];
+
+    window.onload = function() {
+        const saved = localStorage.getItem('hitster_db_players');
+        if (saved) {
+            players = JSON.parse(saved);
+            const lastSet = localStorage.getItem('hitster_last_set') || 'set1';
+            loadSongsFromSheet(lastSet).then(() => showGame());
+        }
+    };
+
+    async function loadSongsFromSheet(selectedKey) {
+        const url = playlists[selectedKey];
+        try {
+            const response = await fetch(url);
+            const data = await response.text();
+            const rows = data.split(/\r?\n/);
+            const geladeneSongs = [];
+
+            for (let i = 1; i < rows.length; i++) {
+                if (!rows[i].trim()) continue;
+                const columns = rows[i].includes(';') ? rows[i].split(';') : rows[i].split(',');
+                const song = {
+                    ytId: columns[0]?.trim() || "",
+                    titel: columns[1]?.trim() || "",
+                    interpret: columns[2]?.trim() || "",
+                    jahr: columns[3]?.trim() || ""
+                };
+                if (song.ytId && song.ytId.length > 5) geladeneSongs.push(song);
             }
-            document.getElementById('start-game-btn').classList.remove('hidden');
+            songDatenbank = geladeneSongs;
+            updateDbCounter();
+            localStorage.setItem('hitster_last_set', selectedKey);
+            return true;
+        } catch (e) {
+            alert("Fehler beim Laden! Link prüfen.");
+            return false;
         }
+    }
 
-        async function startGame() {
-            const set = document.getElementById('playlist-dropdown').value;
-            const ok = await loadSongsFromSheet(set);
-            if(!ok) return;
+    function updateDbCounter() {
+        const pool = songDatenbank.filter(s => !playedSongIds.includes(s.ytId));
+        const dbCountElem = document.getElementById('db-count');
+        if(dbCountElem) dbCountElem.innerText = `Noch verfügbar: ${pool.length} (Gespielt: ${playedSongIds.length})`;
+    }
 
-            const inputs = document.querySelectorAll('#name-inputs input');
-    
-            // WICHTIG: Wir schauen, ob wir den Spieler schon kennen, um seine Siege zu behalten
-            const existingPlayers = JSON.parse(localStorage.getItem('hitster_db_players')) || [];
+    function createPlayerInputs(num) {
+        const container = document.getElementById('name-inputs');
+        container.innerHTML = "<h3>Namen:</h3>";
+        for(let i=1; i<=num; i++) {
+            container.innerHTML += `<input type="text" id="name-${i}" placeholder="Spieler ${i}">`;
+        }
+        document.getElementById('start-game-btn').classList.remove('hidden');
+    }
 
-            players = Array.from(inputs).map(inp => {
-                const name = inp.value || "Spieler";
-                const oldData = existingPlayers.find(p => p.name === name);
-                return { 
-                    name: name, 
-                    score: 0, 
-                    timeline: [], 
-                    wins: oldData ? oldData.wins : 0 // Siege übernehmen oder bei 0 starten
+    async function startGame() {
+        const set = document.getElementById('playlist-dropdown').value;
+        const ok = await loadSongsFromSheet(set);
+        if(!ok) return;
+
+        const inputs = document.querySelectorAll('#name-inputs input');
+        const existingPlayers = JSON.parse(localStorage.getItem('hitster_db_players')) || [];
+
+        players = Array.from(inputs).map(inp => {
+            const name = inp.value || "Spieler";
+            const oldData = existingPlayers.find(p => p.name === name);
+            return { 
+                name: name, 
+                score: 0, 
+                timeline: [], 
+                wins: oldData ? oldData.wins : 0 
             };
         });
     
@@ -210,137 +236,118 @@
         showGame();
     }
 
-        function showGame() {
-            document.getElementById('setup-area').classList.add('hidden');
-            document.getElementById('game-area').classList.remove('hidden');
+    function showGame() {
+        document.getElementById('setup-area').classList.add('hidden');
+        document.getElementById('game-area').classList.remove('hidden');
+        renderScoreboard();
+    }
+
+    function pickRandomSong() {
+        const pool = songDatenbank.filter(s => !playedSongIds.includes(s.ytId));
+        if (pool.length === 0) return alert("Paket leer! Bitte neues Paket wählen oder Reset.");
+
+        currentSong = pool[Math.floor(Math.random() * pool.length)];
+        document.getElementById('status').innerText = "Song bereit!";
+        document.getElementById('display-title').innerText = currentSong.titel + " - " + currentSong.interpret;
+        document.getElementById('display-year').innerText = "Jahr: " + currentSong.jahr;
+        document.getElementById('controls').classList.remove('hidden');
+        document.getElementById('song-info').classList.add('hidden');
+        document.getElementById('video-player').src = "";
+    }
+
+    function startVideo() {
+        if(currentSong) document.getElementById('video-player').src = "https://www.youtube.com/embed/" + currentSong.ytId + "?autoplay=1";
+    }
+
+    function stopVideo() {
+        document.getElementById('video-player').src = "";
+    }
+
+    function revealInfo() {
+        stopVideo();
+        document.getElementById('song-info').classList.remove('hidden');
+        if (currentSong && !playedSongIds.includes(currentSong.ytId)) {
+            playedSongIds.push(currentSong.ytId);
+            localStorage.setItem('hitster_played_songs', JSON.stringify(playedSongIds));
+            updateDbCounter();
+        }
+    }
+
+    function renderScoreboard() {
+        const sb = document.getElementById('scoreboard');
+        sb.innerHTML = "";
+        players.forEach((p, i) => {
+            const sorted = [...p.timeline].sort((a, b) => parseInt(a.jahr) - parseInt(b.jahr));
+            const timelineHTML = sorted.map(s => `<div class="timeline-card"><span class="timeline-year">${s.jahr}</span> ${s.titel}</div>`).join("");
+        
+            sb.innerHTML += `
+                <div class="player-score">
+                    <span class="total-wins">🏆 Siege: ${p.wins || 0}</span>
+                    <strong>${p.name}</strong>
+                    <span class="score-val">${p.score}</span>
+                    <button onclick="addPoint(${i})">➕ Punkt</button>
+                    <button onclick="updateScore(${i}, -1)" style="background:#555; padding: 5px 10px;">-1</button>
+                    <div class="timeline">${timelineHTML}</div>
+                 </div>`;
+        });
+    }
+
+    function addPoint(idx) {
+        if (!currentSong) return;
+        players[idx].timeline.push({ titel: currentSong.titel, jahr: currentSong.jahr });
+        players[idx].score = players[idx].timeline.length;
+
+        if (players[idx].score >= 10) {
+            players[idx].wins = (players[idx].wins || 0) + 1;
+            localStorage.setItem('hitster_db_players', JSON.stringify(players));
             renderScoreboard();
-        }
 
-        function pickRandomSong() {
-            const pool = songDatenbank.filter(s => !playedSongIds.includes(s.ytId));
-            if (pool.length === 0) return alert("Paket leer! Bitte neues Paket wählen oder Reset.");
-
-            currentSong = pool[Math.floor(Math.random() * pool.length)];
-            document.getElementById('status').innerText = "Song bereit!";
-            document.getElementById('display-title').innerText = currentSong.titel + " - " + currentSong.interpret;
-            document.getElementById('display-year').innerText = "Jahr: " + currentSong.jahr;
-            document.getElementById('controls').classList.remove('hidden');
-            document.getElementById('song-info').classList.add('hidden');
-            document.getElementById('video-player').src = "";
-        }
-
-        function startVideo() {
-            if(currentSong) document.getElementById('video-player').src = "https://www.youtube.com/embed/" + currentSong.ytId + "?autoplay=1";
-        }
-
-        function stopVideo() {
-            document.getElementById('video-player').src = "";
-        }
-
-        function revealInfo() {
-            stopVideo();
-            document.getElementById('song-info').classList.remove('hidden');
-            if (currentSong && !playedSongIds.includes(currentSong.ytId)) {
-                playedSongIds.push(currentSong.ytId);
-                localStorage.setItem('hitster_played_songs', JSON.stringify(playedSongIds));
-                updateDbCounter();
-            }
-        }
-
-        function renderScoreboard() {
-            const sb = document.getElementById('scoreboard');
-            sb.innerHTML = "";
-            players.forEach((p, i) => {
-                const sorted = [...p.timeline].sort((a, b) => parseInt(a.jahr) - parseInt(b.jahr));
-                const timelineHTML = sorted.map(s => `<div class="timeline-card"><span class="timeline-year">${s.jahr}</span> ${s.titel}</div>`).join("");
+            document.querySelectorAll('.player-score strong')[idx].classList.add('winner-glow');
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
         
-                sb.innerHTML += `
-                    <div class="player-score">
-                        <span class="total-wins">🏆 Siege: ${p.wins || 0}</span>
-                        <strong>${p.name}</strong>
-                        <span class="score-val">${p.score}</span>
-                        <button onclick="addPoint(${i})">➕ Punkt</button>
-                        <button onclick="updateScore(${i}, -1)" style="background:#555; padding: 5px 10px;">-1</button>
-                        <div class="timeline">${timelineHTML}</div>
-                     </div>`;
-            });
-        }
-
-        function addPoint(idx) {
-            if (!currentSong) return;
-            players[idx].timeline.push({ titel: currentSong.titel, jahr: currentSong.jahr });
-            players[idx].score = players[idx].timeline.length;
-
-            if (players[idx].score >= 10) {
-                // Sieg hochzählen!
-                players[idx].wins = (players[idx].wins || 0) + 1;
-        
-                localStorage.setItem('hitster_db_players', JSON.stringify(players));
-                renderScoreboard();
-
-                document.querySelectorAll('.player-score strong')[idx].classList.add('winner-glow');
-                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-        
-                setTimeout(() => {
-                    alert("🏆 " + players[idx].name + " hat GEWONNEN! 🏆\nDas ist Sieg Nummer " + players[idx].wins);
-                    if(confirm("Neue Runde mit gleichen Spielern?")) resetScores();
-                }, 1000);
-            } else {
-                localStorage.setItem('hitster_db_players', JSON.stringify(players));
-                renderScoreboard();
-            }
-        }
-
-        function updateScore(i, v) {
-            if (v < 0 && players[i].timeline.length > 0) players[i].timeline.pop();
-            players[i].score = players[i].timeline.length;
+            setTimeout(() => {
+                alert("🏆 " + players[idx].name + " hat GEWONNEN! 🏆\nDas ist Sieg Nummer " + players[idx].wins);
+                if(confirm("Neue Runde mit gleichen Spielern?")) resetScores();
+            }, 1000);
+        } else {
             localStorage.setItem('hitster_db_players', JSON.stringify(players));
             renderScoreboard();
         }
+    }
 
-        function resetScores() {
-            players.forEach(p => { 
-                p.score = 0; 
-                p.timeline = []; 
-                // p.wins wird hier NICHT angefasst, damit sie erhalten bleiben!
-            });
+    function updateScore(i, v) {
+        if (v < 0 && players[i].timeline.length > 0) players[i].timeline.pop();
+        players[i].score = players[i].timeline.length;
+        localStorage.setItem('hitster_db_players', JSON.stringify(players));
+        renderScoreboard();
+    }
+
+    function resetScores() {
+        players.forEach(p => { 
+            p.score = 0; 
+            p.timeline = []; 
+        });
+        localStorage.setItem('hitster_db_players', JSON.stringify(players));
+        const names = document.querySelectorAll('.player-score strong');
+        names.forEach(n => n.classList.remove('winner-glow'));
+        renderScoreboard();
+        document.getElementById('status').innerText = "Neue Runde - Viel Glück!";
+    }
+
+    function resetOnlyWins() {
+        if(confirm("Möchtest du wirklich alle Gesamtsiege auf 0 zurücksetzen?")) {
+            players.forEach(p => { p.wins = 0; });
             localStorage.setItem('hitster_db_players', JSON.stringify(players));
-    
-            // Wir entfernen die Gold-Animation von allen Namen
-            const names = document.querySelectorAll('.player-score strong');
-            names.forEach(n => n.classList.remove('winner-glow'));
-    
             renderScoreboard();
-            document.getElementById('status').innerText = "Neue Runde - Viel Glück!";
         }
-
-        function resetOnlyWins() {
-            if(confirm("Möchtest du wirklich alle Gesamtsiege auf 0 zurücksetzen?")) {
-                players.forEach(p => {
-                    p.wins = 0;
-                });
-                localStorage.setItem('hitster_db_players', JSON.stringify(players));
-                renderScoreboard();
-            }
+    }
+    
+    function resetGame() {
+        if(confirm("Alles löschen?")) {
+            localStorage.clear();
+            location.reload();
         }
-        
-        function resetGame() {
-            if(confirm("Alles löschen?")) {
-                localStorage.clear();
-                location.reload();
-            }
-        }
-
-        function toggleFullscreen() {
-            let elem = document.documentElement;
-            if (!document.fullscreenElement) {
-                elem.requestFullscreen().catch(err => {
-                     console.log("Vollbild nicht möglich: " + err.message);
-                });
-            } else {
-                document.exitFullscreen();
-            }
-        }
-    </script>
+    }
+</script>
 </body>
 </html>
