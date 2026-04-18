@@ -83,184 +83,211 @@
     </div>
 
     <script>
-        // HIER DEINEN GOOGLE SHEETS CSV-LINK EINFÜGEN:
-        const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJkS7ZgyqTEyjfOdiQ0wFlhllm_ZeQHQo9S5z597Jq7ejqKjVjZRTIg9FHoaEx-rGGhsOCAEg5PL1G/pub?output=csv";
+    const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJkS7ZgyqTEyjfOdiQ0wFlhllm_ZeQHQo9S5z597Jq7ejqKjVjZRTIg9FHoaEx-rGGhsOCAEg5PL1G/pub?output=csv";
 
-        let songDatenbank = [];
-        let players = [];
-        let currentSong = null;
+    let songDatenbank = [];
+    let players = [];
+    let currentSong = null;
+    let playedSongIds = JSON.parse(localStorage.getItem('hitster_played_songs')) || [];
 
-        // 1. Daten beim Start laden
-        window.onload = async function() {
-            await loadSongsFromSheet();
-            const saved = localStorage.getItem('hitster_db_players');
-            if (saved) {
-                players = JSON.parse(saved);
-                showGame();
-            }
-        };
-
-        async function loadSongsFromSheet() {
-            try {
-                const response = await fetch(sheetUrl);
-                const data = await response.text();
-                
-                // Wir teilen den Text in Zeilen
-                const rows = data.split(/\r?\n/); // Erkennt verschiedene Zeilenumbrüche
-                
-                const geladeneSongs = [];
-
-                // Wir gehen jede Zeile durch (starten bei 1, um Header zu überspringen)
-                for (let i = 1; i < rows.length; i++) {
-                    if (!rows[i].trim()) continue; // Überspringe komplett leere Zeilen
-
-                    const columns = rows[i].includes(';') ? rows[i].split(';') : rows[i].split(',');
-                    
-                    const song = {
-                        ytId: columns[0] ? columns[0].trim() : "",
-                        titel: columns[1] ? columns[1].trim() : "",
-                        interpret: columns[2] ? columns[2].trim() : "",
-                        jahr: columns[3] ? columns[3].trim() : ""
-                    };
-
-                    // DER FILTER: Nur hinzufügen, wenn die ytId genau 11 Zeichen hat 
-                    // (oder zumindest länger als 5 ist und nicht "undefined" heißt)
-                    if (song.ytId && song.ytId.length > 5 && song.ytId !== "undefined") {
-                        geladeneSongs.push(song);
-                    }
-                }
-
-                songDatenbank = geladeneSongs;
-
-                document.getElementById('db-count').innerText = "Songs in DB: " + songDatenbank.length;
-                document.getElementById('status').innerText = songDatenbank.length > 0 ? "Bereit zum Spielen!" : "DB leer - Links prüfen!";
-                if(songDatenbank.length > 0) {
-                    document.getElementById('random-btn').classList.remove('hidden');
-                }
-            } catch (error) {
-                document.getElementById('status').innerText = "Fehler beim Laden!";
-                console.error(error);
-            }
-        }
-
-        // 2. Setup Logik
-        function createPlayerInputs(num) {
-            const container = document.getElementById('name-inputs');
-            container.innerHTML = "<h3>Namen:</h3>";
-            for(let i=1; i<=num; i++) {
-                container.innerHTML += `<input type="text" id="name-${i}" placeholder="Spieler ${i}">`;
-            }
-            document.getElementById('start-game-btn').classList.remove('hidden');
-        }
-
-        function startGame() {
-            const inputs = document.querySelectorAll('#name-inputs input');
-            players = Array.from(inputs).map(inp => ({ 
-                name: inp.value || "Spieler", 
-                score: 0,
-                timeline: [] 
-            }));
-            localStorage.setItem('hitster_db_players', JSON.stringify(players));
+    window.onload = async function() {
+        await loadSongsFromSheet();
+        const saved = localStorage.getItem('hitster_db_players');
+        if (saved) {
+            players = JSON.parse(saved);
             showGame();
         }
+    };
 
-        function showGame() {
-            document.getElementById('setup-area').classList.add('hidden');
-            document.getElementById('game-area').classList.remove('hidden');
-            renderScoreboard();
-        }
+    async function loadSongsFromSheet() {
+        try {
+            const response = await fetch(sheetUrl);
+            const data = await response.text();
+            const rows = data.split(/\r?\n/);
+            const geladeneSongs = [];
 
-        // 3. Song Logik
-        function pickRandomSong() {
-            if (songDatenbank.length === 0) return alert("DB leer!");
-            const randomIndex = Math.floor(Math.random() * songDatenbank.length);
-            currentSong = songDatenbank[randomIndex];
-            
-            document.getElementById('status').innerText = "Song gefunden!";
-            document.getElementById('display-title').innerText = currentSong.titel + " - " + currentSong.interpret;
-            document.getElementById('display-year').innerText = "Jahr: " + currentSong.jahr;
-            
-            document.getElementById('controls').classList.remove('hidden');
-            document.getElementById('song-info').classList.add('hidden');
-            document.getElementById('video-player').src = ""; 
-            document.getElementById('play-btn').innerText = "▶️ Musik abspielen";
-        }
-
-        function startVideo() {
-            if(currentSong) {
-                document.getElementById('video-player').src = "https://www.youtube.com/embed/" + currentSong.ytId + "?autoplay=1";
-                document.getElementById('play-btn').innerText = "🎵 Musik läuft...";
-            }
-        }
-
-        function stopVideo() {
-            document.getElementById('video-player').src = ""; 
-            document.getElementById('play-btn').innerText = "▶️ Musik fortsetzen";
-        }
-
-        function revealInfo() {
-            stopVideo();
-            document.getElementById('song-info').classList.remove('hidden');
-        }
-
-        // 4. Scoreboard & Timeline Logik
-        function renderScoreboard() {
-            const sb = document.getElementById('scoreboard');
-            sb.innerHTML = "";
-            players.forEach((p, i) => {
-                // Timeline sortieren (Kleinstes Jahr zuerst)
-                const sortedTimeline = [...p.timeline].sort((a, b) => parseInt(a.jahr) - parseInt(b.jahr));
+            for (let i = 1; i < rows.length; i++) {
+                if (!rows[i].trim()) continue;
+                const columns = rows[i].includes(';') ? rows[i].split(';') : rows[i].split(',');
                 
-                const timelineHTML = sortedTimeline.map(song => `
-                    <div class="timeline-card">
-                        <span class="timeline-year">${song.jahr}</span> 
-                        ${song.titel}
-                    </div>
-                `).join("");
+                const song = {
+                    ytId: columns[0] ? columns[0].trim() : "",
+                    titel: columns[1] ? columns[1].trim() : "",
+                    interpret: columns[2] ? columns[2].trim() : "",
+                    jahr: columns[3] ? columns[3].trim() : ""
+                };
 
-                sb.innerHTML += `
-                    <div class="player-score">
-                        <strong>${p.name}</strong>
-                        <span class="score-val" id="sc-${i}">${p.score}</span>
-                        <button onclick="addSongToPlayer(${i})">➕ Punkt & Karte</button>
-                        <button onclick="updateScore(${i}, -1)" style="background:#555; padding: 5px 10px; font-size: 0.8em;">-1</button>
-                        <div class="timeline">
-                            ${timelineHTML}
-                        </div>
-                    </div>`;
-            });
-        }
+                if (song.ytId && song.ytId.length > 5 && song.ytId !== "undefined") {
+                    geladeneSongs.push(song);
+                }
+            }
 
-        function addSongToPlayer(playerIndex) {
-            if (!currentSong) return alert("Wähle erst einen Song!");
+            songDatenbank = geladeneSongs;
+            updateDbCounter();
             
-            const wonSong = {
-                titel: currentSong.titel,
-                jahr: currentSong.jahr
-            };
-
-            players[playerIndex].timeline.push(wonSong);
-            players[playerIndex].score = players[playerIndex].timeline.length;
-
-            localStorage.setItem('hitster_db_players', JSON.stringify(players));
-            renderScoreboard();
-        }
-
-        function updateScore(i, v) {
-            if (v < 0 && players[i].timeline.length > 0) {
-                players[i].timeline.pop();
+            document.getElementById('status').innerText = songDatenbank.length > 0 ? "Bereit zum Spielen!" : "DB leer - Links prüfen!";
+            if(songDatenbank.length > 0) {
+                document.getElementById('random-btn').classList.remove('hidden');
             }
-            players[i].score = players[i].timeline.length;
-            localStorage.setItem('hitster_db_players', JSON.stringify(players));
-            renderScoreboard();
+        } catch (error) {
+            document.getElementById('status').innerText = "Fehler beim Laden!";
+            console.error(error);
+        }
+    }
+
+    function updateDbCounter() {
+        const remaining = songDatenbank.filter(s => !playedSongIds.includes(s.ytId)).length;
+        document.getElementById('db-count').innerText = `Verfügbare Songs: ${remaining} (Gespielt: ${playedSongIds.length})`;
+    }
+
+    function createPlayerInputs(num) {
+        const container = document.getElementById('name-inputs');
+        container.innerHTML = "<h3>Namen:</h3>";
+        for(let i=1; i<=num; i++) {
+            container.innerHTML += `<input type="text" id="name-${i}" placeholder="Spieler ${i}">`;
+        }
+        document.getElementById('start-game-btn').classList.remove('hidden');
+    }
+
+    function startGame() {
+        const inputs = document.querySelectorAll('#name-inputs input');
+        players = Array.from(inputs).map(inp => ({ 
+            name: inp.value || "Spieler", 
+            score: 0,
+            timeline: [] 
+        }));
+        localStorage.setItem('hitster_db_players', JSON.stringify(players));
+        showGame();
+    }
+
+    function showGame() {
+        document.getElementById('setup-area').classList.add('hidden');
+        document.getElementById('game-area').classList.remove('hidden');
+        renderScoreboard();
+    }
+
+    function pickRandomSong() {
+        // Filtert die Datenbank: Nur Songs, die noch nicht in playedSongIds sind
+        const pool = songDatenbank.filter(s => !playedSongIds.includes(s.ytId));
+        
+        if (pool.length === 0) {
+            alert("Alle Songs aus der Liste wurden bereits gespielt! Setze die Liste zurück, um von vorn zu beginnen.");
+            return;
         }
 
-        function resetGame() {
-            if(confirm("Alles löschen und von vorne beginnen?")) {
-                localStorage.removeItem('hitster_db_players');
-                location.reload();
-            }
+        const randomIndex = Math.floor(Math.random() * pool.length);
+        currentSong = pool[randomIndex];
+        
+        document.getElementById('status').innerText = "Song gefunden!";
+        document.getElementById('display-title').innerText = currentSong.titel + " - " + currentSong.interpret;
+        document.getElementById('display-year').innerText = "Jahr: " + currentSong.jahr;
+        
+        document.getElementById('controls').classList.remove('hidden');
+        document.getElementById('song-info').classList.add('hidden');
+        document.getElementById('video-player').src = ""; 
+        document.getElementById('play-btn').innerText = "▶️ Musik abspielen";
+    }
+
+    function startVideo() {
+        if(currentSong) {
+            document.getElementById('video-player').src = "https://www.youtube.com/embed/" + currentSong.ytId + "?autoplay=1";
+            document.getElementById('play-btn').innerText = "🎵 Musik läuft...";
         }
-    </script>
+    }
+
+    function stopVideo() {
+        document.getElementById('video-player').src = ""; 
+        document.getElementById('play-btn').innerText = "▶️ Musik fortsetzen";
+    }
+
+    function revealInfo() {
+        stopVideo();
+        document.getElementById('song-info').classList.remove('hidden');
+        
+        // Sobald die Info gezeigt wird, gilt der Song als "benutzt"
+        if (currentSong && !playedSongIds.includes(currentSong.ytId)) {
+            playedSongIds.push(currentSong.ytId);
+            localStorage.setItem('hitster_played_songs', JSON.stringify(playedSongIds));
+            updateDbCounter();
+        }
+    }
+
+    function renderScoreboard() {
+        const sb = document.getElementById('scoreboard');
+        sb.innerHTML = "";
+        players.forEach((p, i) => {
+            const sortedTimeline = [...p.timeline].sort((a, b) => parseInt(a.jahr) - parseInt(b.jahr));
+            const timelineHTML = sortedTimeline.map(song => `
+                <div class="timeline-card">
+                    <span class="timeline-year">${song.jahr}</span> 
+                    ${song.titel}
+                </div>
+            `).join("");
+
+            sb.innerHTML += `
+                <div class="player-score">
+                    <strong>${p.name}</strong>
+                    <span class="score-val" id="sc-${i}">${p.score}</span>
+                    <button onclick="addSongToPlayer(${i})">➕ Punkt & Karte</button>
+                    <button onclick="updateScore(${i}, -1)" style="background:#555; padding: 5px 10px; font-size: 0.8em;">-1</button>
+                    <div class="timeline">
+                        ${timelineHTML}
+                    </div>
+                </div>`;
+        });
+    }
+
+    function addSongToPlayer(playerIndex) {
+        if (!currentSong) return alert("Wähle erst einen Song!");
+        
+        const wonSong = {
+            titel: currentSong.titel,
+            jahr: currentSong.jahr
+        };
+
+        players[playerIndex].timeline.push(wonSong);
+        players[playerIndex].score = players[playerIndex].timeline.length;
+
+        localStorage.setItem('hitster_db_players', JSON.stringify(players));
+        renderScoreboard();
+
+        // GEWINN-CHECK
+        if (players[playerIndex].score >= 10) {
+            setTimeout(() => {
+                alert("🎉 GRATULATION! " + players[playerIndex].name + " hat 10 Punkte erreicht und das Spiel GEWONNEN! 🏆");
+                if(confirm("Möchtest du eine neue Runde mit den gleichen Spielern starten? (Die gespielten Songs bleiben ausgeschlossen)")) {
+                    resetScoresButKeepSongs();
+                }
+            }, 500);
+        }
+    }
+
+    function resetScoresButKeepSongs() {
+        players.forEach(p => {
+            p.score = 0;
+            p.timeline = [];
+        });
+        localStorage.setItem('hitster_db_players', JSON.stringify(players));
+        renderScoreboard();
+        document.getElementById('status').innerText = "Neue Runde gestartet!";
+    }
+
+    function updateScore(i, v) {
+        if (v < 0 && players[i].timeline.length > 0) {
+            players[i].timeline.pop();
+        }
+        players[i].score = players[i].timeline.length;
+        localStorage.setItem('hitster_db_players', JSON.stringify(players));
+        renderScoreboard();
+    }
+
+    function resetGame() {
+        if(confirm("Alles löschen (auch gespielte Songs) und komplett neu starten?")) {
+            localStorage.removeItem('hitster_db_players');
+            localStorage.removeItem('hitster_played_songs');
+            location.reload();
+        }
+    }
+</script>
 </body>
 </html>
