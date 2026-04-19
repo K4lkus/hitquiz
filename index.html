@@ -145,6 +145,8 @@
         <div class="card animate-slide">
             <h2 id="status">Bereit?</h2>
             <button id="random-btn" onclick="pickRandomSong()" style="font-size: 1.1em; background: #1DB954;">🎲 Nächster Song</button>
+            <br>
+            <button id="undo-btn" onclick="undoLastSong()" class="hidden" style="font-size: 0.8em; background: #555; margin-top: 5px;">↩️ Ups, einen Song zurück</button>
             <iframe id="video-player" src="" frameborder="0" allow="autoplay"></iframe>
             
             <div id="controls" class="hidden animate-fade">
@@ -163,6 +165,7 @@
         </div>
 
         <div style="margin-top: 15px;">
+            <p id="current-box-info" style="font-size: 0.8em; color: #00d4ff; margin-bottom: 2px;">Paket: -</p>
             <p id="db-count" style="font-size: 0.75em; color: #888;">Lieder im Pool: 0</p>
             <button onclick="resetScores()" style="background: #ffa500; color: black; font-size: 0.7em;">🔄 Punkte Reset</button>
             <button onclick="resetGame()" class="btn-danger">❌ Alles löschen & Menü</button>
@@ -189,6 +192,7 @@
     let songDatenbank = [];
     let players = [];
     let currentSong = null;
+    let lastSong = null;
     let playedSongIds = JSON.parse(localStorage.getItem('hitster_played_songs')) || [];
 
     window.onload = function() {
@@ -231,6 +235,9 @@
             songDatenbank = geladeneSongs.filter(s => s.ytId && s.ytId.length > 5);
             updateDbCounter();
             localStorage.setItem('hitster_last_url', url);
+            // Den Namen des Pakets aus dem Dropdown auslesen und anzeigen
+            const boxName = document.getElementById('box-dropdown').options[document.getElementById('box-dropdown').selectedIndex].text;
+            document.getElementById('current-box-info').innerText = "Paket: " + boxName;
             return true;
         } catch (e) { alert("Fehler beim Laden!"); return false; }
     }
@@ -258,25 +265,132 @@
         renderScoreboard();
     }
 
-    function pickRandomSong() {
-        playedSongIds = JSON.parse(localStorage.getItem('hitster_played_songs')) || [];
-        const pool = songDatenbank.filter(s => !playedSongIds.includes(s.ytId));
-        
-        if (pool.length === 0) {
-            alert("Paket leer! Bitte Spiel resetten oder neues Paket wählen.");
-            return;
+    async function pickRandomSong() {
+        // 1. Undo-Logik: Den aktuellen Song als "letzten Song" merken
+        if (currentSong) {
+            lastSong = currentSong; 
+            const undoBtn = document.getElementById('undo-btn');
+            if (undoBtn) undoBtn.classList.remove('hidden');
         }
 
+        // 2. Den Pool der noch nicht gespielten Songs laden
+        playedSongIds = JSON.parse(localStorage.getItem('hitster_played_songs')) || [];
+        let pool = songDatenbank.filter(s => !playedSongIds.includes(s.ytId));
+    
+        // 3. PRÜFUNG: Ist der Pool leer?
+        if (pool.length === 0) {
+            const autoNext = confirm("Diese Box ist leer! Möchtest du das nächste Paket in dieser Kategorie laden, um weiterzuspielen?");
+        
+            if (autoNext) {
+                // Wir warten, bis die nächste Box geladen wurde
+                const success = await loadNextBox(); 
+            
+                if (success) {
+                    // Den Pool mit den neu geladenen Songs aktualisieren
+                    pool = songDatenbank.filter(s => !playedSongIds.includes(s.ytId));
+                    alert("Nächstes Paket erfolgreich hinzugefügt!");
+                } else {
+                    alert("Keine weiteren Pakete in dieser Kategorie gefunden. Das Spiel ist zu Ende!");
+                    return; // Beendet die Funktion, wenn nichts mehr da ist
+                }
+            } else {
+                return; // Beendet die Funktion, wenn der Nutzer nicht wechseln will
+            }
+        }
+
+        // 4. Zufälligen Song aus dem (evtl. neuen) Pool auswählen
         currentSong = pool[Math.floor(Math.random() * pool.length)];
+    
+        // 5. Song im UI anzeigen
+        displaySong(currentSong);
+    }
+
+    async function loadNextBox() {
+        const currentKat = document.getElementById('category-dropdown').value;
+        const currentUrl = localStorage.getItem('hitster_last_url');
+        const boxen = Object.values(quizDaten[currentKat]);
+        const namen = Object.keys(quizDaten[currentKat]);
+    
+        // Finde den Index der aktuellen Box
+        const currentIndex = boxen.indexOf(currentUrl);
+    
+        if (currentIndex !== -1 && currentIndex < boxen.length - 1) {
+            const nextUrl = boxen[currentIndex + 1];
+            const nextName = namen[currentIndex + 1];
+        
+            console.log("Lade nächste Box: " + nextName);
+        
+            // Songs der neuen Box zur bestehenden Datenbank HINZUFÜGEN (nicht ersetzen)
+            return await appendSongsFromUrl(nextUrl);
+        }
+        return false;
+    }
+
+    async function appendSongsFromUrl(url) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Netzwerk-Fehler");
+        
+            const data = await response.text();
+            const rows = data.split(/\r?\n/);
+        
+            // 1. Namen der neuen Box für die Anzeige finden
+            const currentKat = document.getElementById('category-dropdown').value;
+            const boxenInKat = quizDaten[currentKat];
+            const nextBoxName = Object.keys(boxenInKat).find(key => boxenInKat[key] === url);
+        
+            if (nextBoxName) {
+                document.getElementById('current-box-info').innerText = "Paket: " + nextBoxName;
+            }
+
+            // 2. Lieder parsen und zur songDatenbank HINZUFÜGEN
+            for (let i = 1; i < rows.length; i++) {
+                if (!rows[i].trim()) continue;
+            
+                // Trenner finden (Semikolon oder Komma)
+                const delimiter = rows[i].includes(';') ? ';' : ',';
+                // Spalten trennen und Anführungszeichen entfernen
+                const columns = rows[i].split(delimiter).map(col => col.replace(/^"|"$/g, '').trim());
+
+                if (columns.length >= 4) {
+                    songDatenbank.push({ 
+                        ytId: columns[0], 
+                        titel: columns[1], 
+                        interpret: columns[2], 
+                        jahr: columns[3] 
+                    });
+                }
+            }
+
+            // 3. Counter und Speicher aktualisieren
+            updateDbCounter();
+            localStorage.setItem('hitster_last_url', url);
+        
+            console.log("Neues Paket erfolgreich angehängt: " + nextBoxName);
+            return true;
+        } catch (e) {
+            console.error("Fehler beim Anhängen der Box:", e);
+            return false;
+        }
+    }
+
+    // DIESE FUNKTION FEHLTE DIR:
+    function displaySong(song) {
         document.getElementById('status').innerText = "Song geladen!";
-        document.getElementById('display-title').innerText = currentSong.titel + " - " + currentSong.interpret;
-        document.getElementById('display-year').innerText = "Jahr: " + currentSong.jahr;
+        document.getElementById('display-title').innerText = song.titel + " - " + song.interpret;
+        document.getElementById('display-year').innerText = "Jahr: " + song.jahr;
         document.getElementById('controls').classList.remove('hidden');
         document.getElementById('song-info').classList.add('hidden');
         document.getElementById('video-player').src = "";
     }
-
-    function startVideo() { if(currentSong) document.getElementById('video-player').src = `https://www.youtube.com/embed/${currentSong.ytId}?autoplay=1`; }
+        
+    function startVideo() { 
+        if(currentSong) {
+            // Wir fügen playsinline=1 hinzu, das ist wichtig für iOS
+            const videoUrl = `https://www.youtube.com/embed/${currentSong.ytId}?autoplay=1&playsinline=1`;
+            document.getElementById('video-player').src = videoUrl; 
+        } 
+    }
     function stopVideo() { document.getElementById('video-player').src = ""; }
 
     function revealInfo() {
@@ -332,12 +446,24 @@
     }
 
     function updateScore(i, v) {
-        if (v < 0 && players[i].timeline.length > 0) players[i].timeline.pop();
+        if (v < 0 && players[i].timeline.length > 0) {
+            // Den letzten Song aus der Timeline des Spielers holen
+            const removedSong = players[i].timeline.pop();
+        
+            // Optional: Den Song wieder für den Pool freigeben
+            // Wenn du willst, dass der Song gelöscht bleibt, lass die nächste Zeile weg:
+            playedSongIds = playedSongIds.filter(s => s.titel !== removedSong.titel);
+        
+            localStorage.setItem('hitster_played_songs', JSON.stringify(playedSongIds));
+        }
+    
+        // Score aktualisieren
         players[i].score = players[i].timeline.length;
         localStorage.setItem('hitster_db_players', JSON.stringify(players));
         renderScoreboard();
+        updateDbCounter();
     }
-
+    
     function updateDbCounter() {
         const pool = songDatenbank.filter(s => !playedSongIds.includes(s.ytId));
         document.getElementById('db-count').innerText = `Pool: ${pool.length}`;
@@ -355,6 +481,22 @@
             document.exitFullscreen();
             if(document.getElementById('fs-btn')) document.getElementById('fs-btn').innerText = "📺 Vollbild";
             if(document.getElementById('fs-btn-game')) document.getElementById('fs-btn-game').innerText = "📺 Vollbild";
+        }
+    }
+
+    function undoLastSong() {
+        if (lastSong) {
+            currentSong = lastSong;
+            lastSong = null; // Nur einmaliges Zurückgehen erlauben
+            displaySong(currentSong);
+            document.getElementById('undo-btn').classList.add('hidden');
+        
+            // Den Song wieder aus der Sperrliste entfernen, falls er dort schon gelandet ist
+            playedSongIds = playedSongIds.filter(id => id !== currentSong.ytId);
+            localStorage.setItem('hitster_played_songs', JSON.stringify(playedSongIds));
+            updateDbCounter();
+        
+            alert("Letzter Song wurde wiederhergestellt!");
         }
     }
 
