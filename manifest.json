@@ -1,9 +1,19 @@
 {
-  "name": "Hit-Quiz",
-  "short_name": "Hitquiz",
+  "short_name": "Hit-Quiz",
+  "name": "Musik Hit-Quiz",
+  "description": "Errate das Jahr der größten Hits!",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/K4lkus/Test/main/icon.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
   "start_url": "index.html",
-  "display": "standalone",
   "background_color": "#0d0221",
-  "theme_color": "#0d0221",
+  "display": "standalone",
+  "scope": "./",
+  "theme_color": "#00d4ff",
   "orientation": "portrait"
 }
