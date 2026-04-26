@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title> 🎵 Hit-Quiz 🎵 </title>
 
+    <link rel="manifest" href="manifest.json">
+
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <style>
@@ -114,6 +116,12 @@
         .timeline::-webkit-scrollbar { width: 3px; }
         .timeline::-webkit-scrollbar-thumb { background: #00d4ff; border-radius: 10px; }
 
+        .active-player {
+            border: 3px solid #bcff00 !important;
+            box-shadow: 0 0 15px rgba(188, 255, 0, 0.6);
+            transform: scale(1.02);
+        }
+
         @media screen and (min-width: 900px) { .scoreboard { flex-wrap: wrap; } }
     </style>
 </head>
@@ -129,6 +137,7 @@
         <select id="box-dropdown"></select>
         <hr style="opacity: 0.1; margin: 15px 0;">
         <p>3. Spieler:</p>
+        <button onclick="createPlayerInputs(1)">1</button>
         <button onclick="createPlayerInputs(2)">2</button>
         <button onclick="createPlayerInputs(3)">3</button>
         <button onclick="createPlayerInputs(4)">4</button>
@@ -222,6 +231,7 @@
     let currentSong = null;
     let lastSong = null;
     let playedSongIds = JSON.parse(localStorage.getItem('hitster_played_songs')) || [];
+    let currentPlayerIndex = 0;
 
     window.onload = function() {
         const catDropdown = document.getElementById('category-dropdown');
@@ -294,6 +304,10 @@
     }
 
     async function pickRandomSong() {
+        if (currentSong !== null) {
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+            renderScoreboard();
+        }    
         // 1. Undo-Logik: Den aktuellen Song als "letzten Song" merken
         if (currentSong) {
             lastSong = currentSong; 
@@ -422,7 +436,7 @@
     function stopVideo() { document.getElementById('video-player').src = ""; }
 
     function revealInfo() {
-        stopVideo();
+        //stopVideo();
         document.getElementById('song-info').classList.remove('hidden');
         if (currentSong && !playedSongIds.includes(currentSong.ytId)) {
             playedSongIds.push(currentSong.ytId);
@@ -433,21 +447,28 @@
 
     function renderScoreboard() {
         const sb = document.getElementById('scoreboard');
-        sb.innerHTML = "";
-        players.forEach((p, i) => {
+        if (!sb) return; // Sicherheitsabfrage
+
+        sb.innerHTML = players.map((p, i) => {
             const isWinner = p.score >= 10;
+            // Hier wird geprüft, ob der Index mit dem aktuellen Spieler übereinstimmt
+            const isActive = (i === currentPlayerIndex);
+            
             const sorted = [...p.timeline].sort((a, b) => parseInt(a.jahr) - parseInt(b.jahr));
             const timelineHTML = sorted.map(s => `<div class="timeline-card"><b>${s.jahr}</b> ${s.titel}</div>`).join("");
-            sb.innerHTML += `
-                <div class="player-score ${isWinner ? 'winner-glow' : ''}">
+        
+            return `
+                <div class="player-score ${isWinner ? 'winner-glow' : ''} ${isActive ? 'active-player' : ''}">
                     <small>🏆 ${p.wins || 0}</small><br>
-                    <strong class="${isWinner ? 'winner-text' : ''}">${p.name}</strong>
-                    <span class="score-val ${isWinner ? 'winner-text' : ''}">${p.score}</span>
-                    <button onclick="addPoint(${i})">+1</button>
-                    <button onclick="updateScore(${i}, -1)">-1</button>
+                    <strong class="${isActive ? 'winner-text' : ''} ${isWinner ? 'winner-glow' : ''}">${p.name}</strong>
+                    <span class="score-val">${p.score}</span>
+                    <div style="display: flex; justify-content: center; gap: 5px;">
+                        <button onclick="addPoint(${i})" class="btn-plus">+1</button>
+                        <button onclick="removePoint(${i})" class="btn-minus">-1</button>
+                    </div>
                     <div class="timeline">${timelineHTML}</div>
                 </div>`;
-        });
+        }).join("");
     }
 
     function addPoint(idx) {
@@ -513,18 +534,35 @@
     }
 
     function undoLastSong() {
-        if (lastSong) {
+        if (lastSong && players.length > 0) {
+            // 1. Index zurückrechnen
+            currentPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length;
+
+            // 2. Song zurücksetzen
             currentSong = lastSong;
-            lastSong = null; // Nur einmaliges Zurückgehen erlauben
-            displaySong(currentSong);
-            document.getElementById('undo-btn').classList.add('hidden');
+            lastSong = null;
         
-            // Den Song wieder aus der Sperrliste entfernen, falls er dort schon gelandet ist
+            // ID aus den gespielten Songs entfernen
             playedSongIds = playedSongIds.filter(id => id !== currentSong.ytId);
             localStorage.setItem('hitster_played_songs', JSON.stringify(playedSongIds));
-            updateDbCounter();
         
-            alert("Letzter Song wurde wiederhergestellt!");
+            // 3. UI-Elemente
+            const undoBtn = document.getElementById('undo-btn');
+            if (undoBtn) undoBtn.classList.add('hidden');
+        
+            const cover = document.getElementById('video-cover');
+            if (cover) {
+                cover.style.display = "flex";
+                cover.style.opacity = "1";
+            }
+
+            // Video neu laden
+            document.getElementById('video-player').src = `https://www.youtube.com/embed/${currentSong.ytId}?autoplay=1&playsinline=1&modestbranding=1&rel=0&enablejsapi=1`;
+        
+            // 4. ALLES AKTUALISIEREN
+ 
+            updateDbCounter();
+            renderScoreboard(); // Das hier MUSS den Rahmen wiederzeichnen
         }
     }
 
