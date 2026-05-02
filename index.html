@@ -494,23 +494,26 @@
         }
     }
 
-    function updateScore(i, v) {
-        if (v < 0 && players[i].timeline.length > 0) {
-            // Den letzten Song aus der Timeline des Spielers holen
-            const removedSong = players[i].timeline.pop();
+    function removePoint(idx) {
+        if (players[idx].timeline.length > 0) {
+            // 1. Letzten Song aus der Timeline des Spielers entfernen
+            const removedSong = players[idx].timeline.pop();
+
+            // 2. Den Song wieder für den Pool freigeben
+            const songInDb = songDatenbank.find(s => s.titel === removedSong.titel);
+            if (songInDb) {
+                playedSongIds = playedSongIds.filter(id => id !== songInDb.ytId);
+                localStorage.setItem('hitster_played_songs', JSON.stringify(playedSongIds));
+            }
+
+            // 3. Score auf Basis der restlichen Timeline-Einträge berechnen
+            players[idx].score = players[idx].timeline.length;
         
-            // Optional: Den Song wieder für den Pool freigeben
-            // Wenn du willst, dass der Song gelöscht bleibt, lass die nächste Zeile weg:
-            playedSongIds = playedSongIds.filter(s => s.titel !== removedSong.titel);
-        
-            localStorage.setItem('hitster_played_songs', JSON.stringify(playedSongIds));
+            // 4. Alles speichern und UI aktualisieren
+            localStorage.setItem('hitster_db_players', JSON.stringify(players));
+            renderScoreboard();
+            updateDbCounter();
         }
-    
-        // Score aktualisieren
-        players[i].score = players[i].timeline.length;
-        localStorage.setItem('hitster_db_players', JSON.stringify(players));
-        renderScoreboard();
-        updateDbCounter();
     }
     
     function updateDbCounter() {
