@@ -35,14 +35,14 @@
         .winner-glow { border: 2px solid #ffd700 !important; animation: pulse-gold 1.5s infinite alternate !important; }
         .winner-text { color: #ffd700 !important; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
 
-        /* Fixierter Header (Scoreboard) */
+        /* Scoreboard */
         #sticky-header {
             position: sticky;
             top: 0;
             z-index: 100;
             background: rgba(13, 2, 33, 0.95);
             backdrop-filter: blur(10px);
-            padding: 5px 0 !important; /* Kompakt */
+            padding: 5px 0 !important; 
             border-bottom: 2px solid rgba(0, 212, 255, 0.3);
         }
 
@@ -81,7 +81,7 @@
         
         #video-player { position: absolute; left: -9999px; width: 1px; height: 1px; }
 
-        /* Scoreboard Layout */
+        /* Layout */
         .scoreboard { display: flex; flex-wrap: nowrap; overflow-x: auto; justify-content: center; gap: 10px; padding: 5px; }
 
         .player-score { 
@@ -275,7 +275,6 @@
             songDatenbank = geladeneSongs.filter(s => s.ytId && s.ytId.length > 5);
             updateDbCounter();
             localStorage.setItem('hitster_last_url', url);
-            // Den Namen des Pakets aus dem Dropdown auslesen und anzeigen
             const boxName = document.getElementById('box-dropdown').options[document.getElementById('box-dropdown').selectedIndex].text;
             document.getElementById('current-box-info').innerText = "Paket: " + boxName;
             return true;
@@ -310,42 +309,42 @@
             currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
             renderScoreboard();
         }    
-        // 1. Undo-Logik: Den aktuellen Song als "letzten Song" merken
+        // Undo-Logik
         if (currentSong) {
             lastSong = currentSong; 
             const undoBtn = document.getElementById('undo-btn');
             if (undoBtn) undoBtn.classList.remove('hidden');
         }
 
-        // 2. Den Pool der noch nicht gespielten Songs laden
+        // Song aus dem Pool ziehen
         playedSongIds = JSON.parse(localStorage.getItem('hitster_played_songs')) || [];
         let pool = songDatenbank.filter(s => !playedSongIds.includes(s.ytId));
     
-        // 3. PRÜFUNG: Ist der Pool leer?
+        // Prüft ob der Pool leer ist
         if (pool.length === 0) {
             const autoNext = confirm("Diese Box ist leer! Möchtest du das nächste Paket in dieser Kategorie laden, um weiterzuspielen?");
         
             if (autoNext) {
-                // Wir warten, bis die nächste Box geladen wurde
+                // Lädt nächste Box
                 const success = await loadNextBox(); 
             
                 if (success) {
-                    // Den Pool mit den neu geladenen Songs aktualisieren
+                    // Pool aktualisieren
                     pool = songDatenbank.filter(s => !playedSongIds.includes(s.ytId));
                     alert("Nächstes Paket erfolgreich hinzugefügt!");
                 } else {
                     alert("Keine weiteren Pakete in dieser Kategorie gefunden. Das Spiel ist zu Ende!");
-                    return; // Beendet die Funktion, wenn nichts mehr da ist
+                    return;
                 }
             } else {
-                return; // Beendet die Funktion, wenn der Nutzer nicht wechseln will
+                return;
             }
         }
 
-        // 4. Zufälligen Song aus dem (evtl. neuen) Pool auswählen
+        // Zuf. Song auswählen
         currentSong = pool[Math.floor(Math.random() * pool.length)];
     
-        // 5. Song im UI anzeigen
+        // Song anzeigen
         displaySong(currentSong);
     }
 
@@ -418,7 +417,6 @@
         }
     }
 
-    // DIESE FUNKTION FEHLTE DIR:
     function displaySong(song) {
         document.getElementById('status').innerText = "Song geladen!";
         document.getElementById('display-title').innerText = song.titel + " - " + song.interpret;
@@ -430,7 +428,6 @@
         
     function startVideo() { 
         if(currentSong) {
-            // Wir fügen playsinline=1 hinzu, das ist wichtig für iOS
             const videoUrl = `https://www.youtube.com/embed/${currentSong.ytId}?autoplay=1&playsinline=1`;
             document.getElementById('video-player').src = videoUrl; 
         } 
@@ -453,7 +450,7 @@
 
         sb.innerHTML = players.map((p, i) => {
             const isWinner = p.score >= 10;
-            // Hier wird geprüft, ob der Index mit dem aktuellen Spieler übereinstimmt
+            // Index der Spieler wird geprüft
             const isActive = (i === currentPlayerIndex);
             
             const sorted = [...p.timeline].sort((a, b) => parseInt(a.jahr) - parseInt(b.jahr));
@@ -498,20 +495,20 @@
 
     function removePoint(idx) {
         if (players[idx].timeline.length > 0) {
-            // 1. Letzten Song aus der Timeline des Spielers entfernen
+            // Letzten Song entfernen
             const removedSong = players[idx].timeline.pop();
 
-            // 2. Den Song wieder für den Pool freigeben
+            // Song wieder freigeben
             const songInDb = songDatenbank.find(s => s.titel === removedSong.titel);
             if (songInDb) {
                 playedSongIds = playedSongIds.filter(id => id !== songInDb.ytId);
                 localStorage.setItem('hitster_played_songs', JSON.stringify(playedSongIds));
             }
 
-            // 3. Score auf Basis der restlichen Timeline-Einträge berechnen
+            // Score neu berechnen
             players[idx].score = players[idx].timeline.length;
         
-            // 4. Alles speichern und UI aktualisieren
+            // Ui aktualisieren
             localStorage.setItem('hitster_db_players', JSON.stringify(players));
             renderScoreboard();
             updateDbCounter();
@@ -527,7 +524,6 @@
         let elem = document.documentElement;
         if (!document.fullscreenElement) {
             elem.requestFullscreen().then(() => {
-                // Text auf beiden möglichen Buttons aktualisieren
                 if(document.getElementById('fs-btn')) document.getElementById('fs-btn').innerText = "📺 Beenden";
                 if(document.getElementById('fs-btn-game')) document.getElementById('fs-btn-game').innerText = "📺 Beenden";
             }).catch(e => console.log(e));
@@ -540,18 +536,17 @@
 
     function undoLastSong() {
         if (lastSong && players.length > 0) {
-            // 1. Index zurückrechnen
+            // Index zurücksetzen
             currentPlayerIndex = (currentPlayerIndex - 1 + players.length) % players.length;
 
-            // 2. Song zurücksetzen
+            // Song zurücksetzen
             currentSong = lastSong;
             lastSong = null;
         
-            // ID aus den gespielten Songs entfernen
+            // Song aus dem "gespielt pool" entfernen
             playedSongIds = playedSongIds.filter(id => id !== currentSong.ytId);
             localStorage.setItem('hitster_played_songs', JSON.stringify(playedSongIds));
         
-            // 3. UI-Elemente
             const undoBtn = document.getElementById('undo-btn');
             if (undoBtn) undoBtn.classList.add('hidden');
         
@@ -561,13 +556,11 @@
                 cover.style.opacity = "1";
             }
 
-            // Video neu laden
             document.getElementById('video-player').src = `https://www.youtube.com/embed/${currentSong.ytId}?autoplay=1&playsinline=1&modestbranding=1&rel=0&enablejsapi=1`;
         
-            // 4. ALLES AKTUALISIEREN
  
             updateDbCounter();
-            renderScoreboard(); // Das hier MUSS den Rahmen wiederzeichnen
+            renderScoreboard();
         }
     }
 
